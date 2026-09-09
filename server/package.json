@@ -1,0 +1,37 @@
+{
+  "name": "aai-asset-management-server",
+  "version": "1.0.0",
+  "description": "Airports Authority of India (AAI) - Asset Management System Backend API",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js",
+    "test": "node --test test/foundation.test.js test/auth.test.js test/employee.test.js test/asset.test.js test/transfer.test.js test/import.test.js test/export.test.js test/complaint.test.js test/dashboard.test.js test/e2e.test.js test/tag_amc.test.js test/audit_fixes.test.js"
+  },
+  "keywords": [
+    "aai",
+    "asset-management",
+    "express",
+    "mongodb"
+  ],
+  "author": "AAI Regional IT Team",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb-memory-server": "^11.2.0",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "multer": "^2.3.0",
+    "pdfkit": "^0.20.2",
+    "qrcode": "^1.5.4",
+    "xlsx": "^0.18.5",
+    "zod": "^3.24.1"
+  }
+}
