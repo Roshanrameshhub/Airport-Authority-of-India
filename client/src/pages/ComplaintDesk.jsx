@@ -332,7 +332,7 @@ export default function ComplaintDesk() {
       )}
 
       {/* Standardized KPI Cards Grid */}
-      <div className="stats-grid">
+      <div className="stats-grid cols-5">
         <StatCard
           label="Total Logged Tickets"
           value={stats.total}

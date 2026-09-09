@@ -19,6 +19,7 @@ import { DataTable } from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import LoadMoreButton from '../components/ui/LoadMoreButton';
+import { downloadAuthenticatedPdf } from '../services/api';
 
 export default function AssetTransfers() {
   const { token } = useAuth();
@@ -184,6 +185,17 @@ export default function AssetTransfers() {
     }
   };
 
+  const handleDownloadSlip = async (assignmentId) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/handover/${assignmentId}/pdf`,
+        `AAI_Handover_${assignmentId}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download official handover slip');
+    }
+  };
+
   // Submit New Assignment
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
@@ -309,7 +321,7 @@ export default function AssetTransfers() {
       <PageHeader
         title="Asset Custody & Transfer Engine"
         icon={ArrowRightLeft}
-        badgeText="PHASE 5 ENGINE"
+        badgeText="Custody Ledger"
         subtitle="Immutable historical custody ledger. Track hardware assignments, departmental handovers, and return to IT store."
       >
         <button
@@ -392,7 +404,7 @@ export default function AssetTransfers() {
       )}
 
       {/* Standardized Metric Summary Cards */}
-      <div className="stats-grid">
+      <div className="stats-grid cols-4">
         <StatCard
           label="Total Ledger Records"
           value={totalRecords}
@@ -575,7 +587,7 @@ export default function AssetTransfers() {
                     </button>
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => window.open(`/api/v1/export/handover/${item.assignmentId}/pdf`, '_blank')}
+                      onClick={() => handleDownloadSlip(item.assignmentId)}
                       title="Download Printable Handover Slip"
                     >
                       <FileText size={14} />
@@ -966,24 +978,19 @@ export default function AssetTransfers() {
                   No custody transfer history recorded for this asset yet.
                 </div>
               ) : (
-                <div style={{ position: 'relative', paddingLeft: '24px', borderLeft: '2px solid var(--border-subtle)', margin: '8px 0 24px 8px' }}>
+                <div className="custody-timeline-container">
                   {assetHistory.map((entry, idx) => (
-                    <div key={entry.assignmentId || idx} style={{ position: 'relative', marginBottom: '24px' }}>
+                    <div key={entry.assignmentId || idx} className="custody-timeline-item">
                       {/* Timeline Node Dot */}
-                      <div style={{
-                        position: 'absolute',
-                        left: '-31px',
-                        top: '4px',
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: entry.status === 'ACTIVE' ? '#10B981' : entry.status === 'TRANSFERRED' ? '#3B82F6' : '#6B7280',
-                        border: '2px solid #ffffff',
-                        boxShadow: '0 0 0 2px var(--border-strong)'
-                      }} />
+                      <div
+                        className="custody-timeline-dot"
+                        style={{
+                          background: entry.status === 'ACTIVE' ? '#10B981' : entry.status === 'TRANSFERRED' ? '#3B82F6' : '#6B7280'
+                        }}
+                      />
 
                       {/* Timeline Content Card */}
-                      <div className="card" style={{ padding: '16px', background: 'var(--color-bg-subtle)' }}>
+                      <div className="custody-timeline-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <span style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'monospace' }}>
                             {entry.assignmentId}
@@ -1005,7 +1012,7 @@ export default function AssetTransfers() {
                           {entry.designation ? `${entry.designation} • ` : ''}{entry.department} ({entry.floor})
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.78rem', background: '#ffffff', padding: '8px 10px', borderRadius: 'var(--radius-sm)', marginBottom: '8px' }}>
+                        <div className="custody-timeline-meta-box">
                           <div>
                             <span style={{ color: 'var(--color-text-muted)' }}>Assigned: </span>
                             <strong>{new Date(entry.assignedDate).toLocaleDateString()}</strong>
@@ -1037,7 +1044,7 @@ export default function AssetTransfers() {
                         <button
                           className="btn btn-secondary btn-sm"
                           style={{ marginTop: '10px', width: '100%' }}
-                          onClick={() => window.open(`/api/v1/export/handover/${entry.assignmentId}/pdf`, '_blank')}
+                          onClick={() => handleDownloadSlip(entry.assignmentId)}
                         >
                           <FileText size={14} />
                           <span>Download Official Handover Slip (PDF)</span>
@@ -1074,7 +1081,7 @@ export default function AssetTransfers() {
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={() => window.open(`/api/v1/export/handover/${selectedRecord.assignmentId}/pdf`, '_blank')}
+                onClick={() => handleDownloadSlip(selectedRecord.assignmentId)}
               >
                 <FileText size={14} />
                 <span>Download Slip</span>

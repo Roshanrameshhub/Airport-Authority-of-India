@@ -17,7 +17,9 @@ import {
   Layers,
   AlertCircle,
   Activity,
-  Users
+  Users,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
@@ -30,6 +32,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [distTab, setDistTab] = useState('category'); // 'category' | 'department'
+  const [showSpecs, setShowSpecs] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [categoryDist, setCategoryDist] = useState([]);
@@ -256,20 +259,46 @@ export default function Dashboard() {
     </div>
   );
 
-  const renderSpecificationTable = () => (
-    <div className="card">
-      <div className="card-header">
-        <div>
-          <h2 className="card-title">Confirmed Specification — 13 Asset Fields</h2>
-          <span className="card-subtitle">Official AAI Central Equipment Ledger Schema</span>
+  const renderSpecificationSection = () => (
+    <div className="card" style={{ width: '100%', marginTop: '4px' }}>
+      <div 
+        className="card-header"
+        onClick={() => setShowSpecs(!showSpecs)}
+        style={{ cursor: 'pointer', userSelect: 'none', marginBottom: showSpecs ? '10px' : 0 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Layers size={15} color="var(--color-brand-600)" />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <h2 className="card-title" style={{ fontSize: '0.85rem' }}>
+                Confirmed Specification — 13 Mandatory Asset Fields
+              </h2>
+              <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }}>Reference Schema</span>
+            </div>
+            <span className="card-subtitle" style={{ fontSize: '0.7rem' }}>
+              Official AAI Central Equipment Ledger Schema &bull; Click to {showSpecs ? 'collapse' : 'expand reference mapping'}
+            </span>
+          </div>
         </div>
-        <Link to="/assets" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-          <span>View Assets</span>
-          <ArrowUpRight size={13} />
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+            onClick={(e) => { e.stopPropagation(); setShowSpecs(!showSpecs); }}
+          >
+            {showSpecs ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <span>{showSpecs ? 'Hide Schema' : 'View 13 Fields'}</span>
+          </button>
+          <Link to="/assets" onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+            <span>View Assets</span>
+            <ArrowUpRight size={13} />
+          </Link>
+        </div>
       </div>
 
-      <div className="spec-grid">
+      {showSpecs && (
+        <div className="spec-grid">
         <div className="spec-grid-item">
           <div className="spec-grid-header">
             <span className="spec-grid-label">#1 User Name</span>
@@ -387,6 +416,7 @@ export default function Dashboard() {
           <span className="spec-grid-sub">asset.remarks (Text)</span>
         </div>
       </div>
+      )}
     </div>
   );
 
@@ -511,7 +541,7 @@ export default function Dashboard() {
       {/* Standardized Page Header */}
       <PageHeader
         title="Executive Dashboard"
-        subtitle="Airports Authority of India • Regional Headquarters • Live Lifecycle, Custody & Warranty Engine"
+        subtitle="Airports Authority of India • Asset Lifecycle, Custody & Warranty Engine"
       >
         <button 
           className="btn btn-secondary btn-sm" 
@@ -541,8 +571,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* KPI Cards Grid - Responsive 6 -> 3 -> 2 -> 1 */}
-      <div className="stats-grid">
+      {/* KPI Cards Grid - Compact Responsive 6 Columns */}
+      <div className="stats-grid cols-6">
         <StatCard
           label="Total Registered Assets"
           value={stats ? stats.assets.total : '--'}
@@ -592,26 +622,28 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Main 3-Column Enterprise Workspace */}
+      {/* Main 2-Column Responsive Operational Grid */}
       <div className="dashboard-workspace">
-        {/* Column 1 (Left): Scope & Operations */}
-        <div className="dashboard-col">
+        {/* Row 1: Operational Scope & Urgent Warranties */}
+        <div className="dashboard-row">
           {renderDistributionCard()}
-          {renderQuickActions()}
-        </div>
-
-        {/* Column 2 (Center): Confirmed 13-Attribute Specification */}
-        <div className="dashboard-col">
-          {renderSpecificationTable()}
-        </div>
-
-        {/* Column 3 (Right): Maintenance, Activities & Compliance */}
-        <div className="dashboard-col">
           {renderWarrantyActionCenter()}
-          {renderAMCContracts()}
-          {renderRecentActivity()}
-          {renderComplianceNotice()}
         </div>
+
+        {/* Row 2: Quick Actions & AMC + Activity & Compliance */}
+        <div className="dashboard-row">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {renderQuickActions()}
+            {renderAMCContracts()}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {renderRecentActivity()}
+            {renderComplianceNotice()}
+          </div>
+        </div>
+
+        {/* Bottom Collapsible Confirmed Specification (13 Asset Fields) */}
+        {renderSpecificationSection()}
       </div>
     </div>
   );

@@ -858,30 +858,42 @@ button {
 }
 
 /* ==========================================================================
-   KPI Stat Cards Grid (6-Col Desktop Standard, Natural Label Wrapping)
+   KPI Stat Cards Grid (Compact Enterprise Standard, Even Alignment)
    ========================================================================== */
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
   margin-bottom: 2px;
   flex-shrink: 0;
   width: 100%;
 }
 
+.stats-grid.cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.stats-grid.cols-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.stats-grid.cols-6 {
+  grid-template-columns: repeat(6, 1fr);
+}
+
 .stat-card {
   background: var(--color-bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   box-shadow: var(--shadow-xs);
   position: relative;
   overflow: hidden;
-  min-height: 88px;
+  min-height: 70px;
   box-sizing: border-box;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
@@ -911,32 +923,37 @@ button {
 
 .stat-card-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
 }
 
 .stat-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
-  line-height: 1.25;
+  line-height: 1.2;
   word-break: break-word;
 }
 
 .stat-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
   background: var(--color-bg-subtle);
   color: var(--color-brand-600);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.stat-icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .stat-card.emerald .stat-icon { background: var(--status-available-bg); color: var(--status-available-text); }
@@ -949,11 +966,11 @@ button {
 .stat-card-body {
   display: flex;
   flex-direction: column;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: 700;
   font-family: var(--font-display);
   color: var(--color-text-main);
@@ -962,47 +979,53 @@ button {
 }
 
 .stat-subtext {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--color-text-muted);
-  line-height: 1.25;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* ==========================================================================
-   Dashboard Workspace Grid (Clean 3-Column Enterprise Architecture)
+   Dashboard Operational Layout (Even Height & Alignment Standard)
    ========================================================================== */
 
 .dashboard-workspace {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1.15fr 1.65fr 1.2fr;
-  gap: 14px;
-  align-items: start;
-  width: 100%;
-}
-
-.dashboard-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 0;
+  width: 100%;
+}
+
+.dashboard-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.dashboard-row > .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .dashboard-scroll-panel {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   width: 100%;
+  flex: 1;
 }
 
-/* 2-Column Quick Actions Grid */
+/* Quick Actions Grid */
 .quick-actions-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   width: 100%;
 }
@@ -1010,10 +1033,10 @@ button {
 .quick-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 12px;
-  font-size: 0.8125rem;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--color-text-main);
   background: var(--color-bg-card);
@@ -1039,12 +1062,37 @@ button {
 }
 
 /* Responsive Confirmed Specification 13-Field Grid */
+.spec-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.spec-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--color-bg-subtle);
+  cursor: pointer;
+  user-select: none;
+}
+
 .spec-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+  padding: 12px;
   width: 100%;
   box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .spec-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -1089,6 +1137,59 @@ button {
   font-size: 0.7rem;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   Custody Timeline (Zero-Protrusion, Dark-Theme Safe)
+   ========================================================================== */
+.custody-timeline-container {
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--border-subtle);
+  margin: 12px 0 16px 8px;
+  box-sizing: border-box;
+}
+
+.custody-timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.custody-timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.custody-timeline-dot {
+  position: absolute;
+  left: -27px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--color-bg-card);
+  box-shadow: 0 0 0 2px var(--border-strong);
+  z-index: 2;
+}
+
+.custody-timeline-card {
+  padding: 14px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.custody-timeline-meta-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 0.78rem;
+  background: var(--color-bg-main);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
 }
 
 /* ==========================================================================
@@ -1424,11 +1525,17 @@ button {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .table-scroll-area {
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .data-table {
@@ -1471,6 +1578,30 @@ button {
   background-color: var(--color-bg-subtle);
 }
 
+/* Sticky Actions Column: Actions remain accessible and visible */
+.data-table th:last-child,
+.data-table td:last-child {
+  position: sticky;
+  right: 0;
+  background: var(--color-bg-card);
+  z-index: 4;
+  box-shadow: -2px 0 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.data-table th:last-child {
+  background: var(--color-bg-subtle);
+  z-index: 7;
+}
+
+.data-table tr:hover td:last-child {
+  background: var(--color-bg-subtle);
+}
+
+[data-theme="dark"] .data-table th:last-child,
+[data-theme="dark"] .data-table td:last-child {
+  box-shadow: -2px 0 4px -1px rgba(0, 0, 0, 0.35);
+}
+
 .action-cell {
   text-align: right;
   white-space: nowrap;
@@ -1481,6 +1612,114 @@ button {
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+}
+
+/* ==========================================================================
+   Custody Workflow Timeline Component (Guaranteed Zero Protrusion)
+   ========================================================================== */
+
+.custody-timeline-container {
+  position: relative;
+  margin: 12px 8px 16px 20px;
+  padding-left: 20px;
+  border-left: 2px solid var(--border-subtle);
+  box-sizing: border-box;
+}
+
+.custody-timeline-item {
+  position: relative;
+  margin-bottom: 18px;
+  box-sizing: border-box;
+}
+
+.custody-timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.custody-timeline-dot {
+  position: absolute;
+  left: -27px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--color-bg-card);
+  box-shadow: 0 0 0 2px var(--border-strong);
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.custody-timeline-dot.active {
+  background: #10b981;
+}
+
+.custody-timeline-dot.transferred {
+  background: #0284c7;
+}
+
+.custody-timeline-dot.returned {
+  background: #64748b;
+}
+
+.custody-timeline-card {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.custody-timeline-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.custody-timeline-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  font-size: 0.76rem;
+  background: var(--color-bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Annual Physical Verification Styles
+   ========================================================================== */
+
+.verification-progress-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: var(--color-bg-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.verification-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #0284c7);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.badge-verified {
+  background: var(--status-available-bg);
+  color: var(--status-available-text);
+  border-color: var(--status-available-border);
+}
+
+.badge-discrepancy {
+  background: var(--status-danger-bg);
+  color: var(--status-danger-text);
+  border-color: var(--status-danger-border);
 }
 
 /* ==========================================================================

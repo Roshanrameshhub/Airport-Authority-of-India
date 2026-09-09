@@ -33,6 +33,7 @@ export default function AuditLogs() {
   const [search, setSearch] = useState('');
   const [selectedAction, setSelectedAction] = useState('');
   const [selectedEntityType, setSelectedEntityType] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -60,6 +61,7 @@ export default function AuditLogs() {
       if (search) queryParams.set('search', search);
       if (selectedAction) queryParams.set('action', selectedAction);
       if (selectedEntityType) queryParams.set('entityType', selectedEntityType);
+      if (selectedStatus) queryParams.set('status', selectedStatus);
 
       const [logsRes, summaryRes] = await Promise.all([
         fetch(`/api/v1/audit-logs?${queryParams.toString()}`, {
@@ -118,7 +120,7 @@ export default function AuditLogs() {
       fetchAuditData(1, false);
     }, 250);
     return () => clearTimeout(delayDebounce);
-  }, [search, selectedAction, selectedEntityType, token]);
+  }, [search, selectedAction, selectedEntityType, selectedStatus, token]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -130,6 +132,7 @@ export default function AuditLogs() {
     setSearch('');
     setSelectedAction('');
     setSelectedEntityType('');
+    setSelectedStatus('');
     setPage(1);
   };
 
@@ -226,41 +229,48 @@ export default function AuditLogs() {
         </button>
       </PageHeader>
 
-      {/* KPI Cards Grid */}
-      <div className="stats-grid">
+      {/* KPI Cards Grid - 6 Operational Business Categories */}
+      <div className="stats-grid cols-6">
         <StatCard
           label="Total Events"
           value={summary?.total || totalCount || 0}
-          subtext={`${summary?.totalSuccess || 0} Successful Transactions`}
+          subtext={`${summary?.totalSuccess || totalCount} Successful Transactions`}
           icon={Activity}
           variant="indigo"
         />
         <StatCard
+          label="Asset Operations"
+          value={summary?.categories?.assetOperations ?? totalAssetOps}
+          subtext="Register, Update & Retire"
+          icon={CheckCircle2}
+          variant="emerald"
+        />
+        <StatCard
           label="Custody Events"
-          value={totalCustodyEvents}
+          value={summary?.categories?.custodyEvents ?? totalCustodyEvents}
           subtext="Assignments, Transfers & Returns"
           icon={Layers}
           variant="purple"
         />
         <StatCard
-          label="Asset Operations"
-          value={totalAssetOps}
-          subtext="Creations, Updates & Decommissions"
-          icon={CheckCircle2}
-          variant="emerald"
+          label="Staff Master Edits"
+          value={summary?.categories?.employeeChanges || (summary?.byAction?.['EMPLOYEE_CREATED'] || 0) + (summary?.byAction?.['EMPLOYEE_UPDATED'] || 0) + (summary?.byAction?.['EMPLOYEE_DEACTIVATED'] || 0)}
+          subtext="Personnel Master Logs"
+          icon={User}
+          variant="indigo"
         />
         <StatCard
-          label="Service Actions"
-          value={totalServiceActions}
-          subtext="Fault Tickets & Technical Repairs"
+          label="Service Desk"
+          value={summary?.categories?.serviceDeskEvents ?? totalServiceActions}
+          subtext="Fault Tickets & Repairs"
           icon={AlertTriangle}
           variant="amber"
         />
         <StatCard
-          label="Auth Sessions"
-          value={summary?.byAction?.['USER_LOGIN'] || 0}
-          subtext="Credential Logins & Access Grants"
-          icon={User}
+          label="Data & Reports"
+          value={summary?.categories?.dataOperations || (summary?.byAction?.['EXCEL_IMPORTED'] || 0) + (summary?.byAction?.['EXCEL_EXPORT'] || 0) + (summary?.byAction?.['PDF_GENERATED'] || 0)}
+          subtext="Imports, Exports & Slips"
+          icon={Download}
           variant="sky"
         />
       </div>
@@ -268,7 +278,7 @@ export default function AuditLogs() {
       {/* Filter and Search Bar */}
       <div className="filter-bar">
         <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-          <div style={{ flex: 1, minWidth: '240px' }}>
+          <div style={{ flex: 1, minWidth: '220px' }}>
             <SearchInput
               id={searchInputId}
               placeholder="Search by action, asset ID, ticket ID, staff username..."
@@ -278,7 +288,7 @@ export default function AuditLogs() {
             />
           </div>
 
-          <div style={{ width: '200px' }}>
+          <div style={{ width: '190px' }}>
             <SelectInput
               id="audit-action-filter"
               value={selectedAction}
@@ -286,6 +296,7 @@ export default function AuditLogs() {
             >
               <option value="">All Action Types</option>
               <option value="USER_LOGIN">User Logins</option>
+              <option value="USER_LOGOUT">User Logouts</option>
               <option value="ASSET_CREATED">Asset Created</option>
               <option value="ASSET_UPDATED">Asset Updated</option>
               <option value="ASSET_RETIRED">Asset Retired</option>
@@ -293,13 +304,19 @@ export default function AuditLogs() {
               <option value="CUSTODY_ASSIGNED">Custody Assigned</option>
               <option value="CUSTODY_TRANSFERRED">Custody Transferred</option>
               <option value="CUSTODY_RETURNED">Custody Returned</option>
+              <option value="EMPLOYEE_CREATED">Staff Registered</option>
+              <option value="EMPLOYEE_UPDATED">Staff Master Updated</option>
+              <option value="EMPLOYEE_DEACTIVATED">Staff Deactivated</option>
               <option value="COMPLAINT_CREATED">Complaint Raised</option>
               <option value="COMPLAINT_STATUS_UPDATED">Complaint Resolved/Updated</option>
               <option value="EXCEL_IMPORTED">Excel Bulk Import</option>
+              <option value="EXCEL_EXPORT">Excel Data Export</option>
+              <option value="PDF_GENERATED">PDF Handover Generated</option>
+              <option value="VERIFICATION_RECORDED">Physical Audit Log</option>
             </SelectInput>
           </div>
 
-          <div style={{ width: '180px' }}>
+          <div style={{ width: '160px' }}>
             <SelectInput
               id="audit-entity-filter"
               value={selectedEntityType}
@@ -308,9 +325,24 @@ export default function AuditLogs() {
               <option value="">All Entities</option>
               <option value="AUTH">Authentication</option>
               <option value="ASSET">Asset Registry</option>
-              <option value="ASSIGNMENT">Custody Lifecycle</option>
+              <option value="ASSIGNMENT">Custody Ledger</option>
+              <option value="EMPLOYEE">Staff Directory</option>
               <option value="COMPLAINT">Service Desk</option>
-              <option value="IMPORT">Import Operations</option>
+              <option value="IMPORT">Data Import</option>
+              <option value="DATA">Export & Reports</option>
+              <option value="VERIFICATION">Physical Audit</option>
+            </SelectInput>
+          </div>
+
+          <div style={{ width: '130px' }}>
+            <SelectInput
+              id="audit-status-filter"
+              value={selectedStatus}
+              onChange={(e) => { setSelectedStatus(e.target.value); setPage(1); }}
+            >
+              <option value="">All Statuses</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="FAILED">FAILED</option>
             </SelectInput>
           </div>
 
@@ -318,7 +350,7 @@ export default function AuditLogs() {
             Filter
           </button>
 
-          {(search || selectedAction || selectedEntityType) && (
+          {(search || selectedAction || selectedEntityType || selectedStatus) && (
             <ClearFilterButton
               id="audit-clear-filter-btn"
               onClick={handleClearFilters}
@@ -526,9 +558,47 @@ export default function AuditLogs() {
               </div>
             </div>
 
+            {/* Visual Field-Level Diff for Updates */}
+            {selectedLog.details?.diff && (
+              <div style={{ marginBottom: '1rem' }}>
+                <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                  FIELD-LEVEL AUDIT DIFF
+                </span>
+                <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse', background: 'var(--color-bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--color-bg-subtle)', textAlign: 'left' }}>
+                      <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-subtle)' }}>Field</th>
+                      <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-subtle)' }}>Previous Value</th>
+                      <th style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-subtle)' }}>Updated Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(selectedLog.details.diff).map(([key, change]) => (
+                      <tr key={key}>
+                        <td style={{ padding: '6px 8px', fontWeight: 600, borderBottom: '1px solid var(--border-subtle)' }}>{key}</td>
+                        <td style={{ padding: '6px 8px', color: 'var(--status-danger-text)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          {String(change?.old ?? change?.oldValue ?? 'N/A')}
+                        </td>
+                        <td style={{ padding: '6px 8px', color: 'var(--status-available-text)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          {String(change?.new ?? change?.newValue ?? 'N/A')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Reason / Remarks Highlight */}
+            {(selectedLog.details?.reason || selectedLog.details?.transferReason) && (
+              <div style={{ marginBottom: '1rem', padding: '8px 12px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '0.8rem' }}>
+                <strong>Reason / Remarks:</strong> {selectedLog.details.reason || selectedLog.details.transferReason}
+              </div>
+            )}
+
             <div>
               <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.35rem' }}>
-                PAYLOAD & EVENT METADATA
+                RAW PAYLOAD & EVENT METADATA
               </span>
               <pre
                 style={{
@@ -536,7 +606,7 @@ export default function AuditLogs() {
                   padding: '0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontSize: '0.8rem',
-                  maxHeight: '260px',
+                  maxHeight: '220px',
                   overflowX: 'auto',
                   border: '1px solid var(--border-subtle)',
                   color: 'var(--color-text-main)',

@@ -150,6 +150,7 @@ export const auditRepository = {
     action,
     entityType,
     entityId,
+    status,
     search,
     startDate,
     endDate,
@@ -164,11 +165,16 @@ export const auditRepository = {
         if (action) filter.action = action.toUpperCase();
         if (entityType) filter.entityType = entityType.toUpperCase();
         if (entityId) filter.entityId = entityId;
+        if (status) filter.status = status.toUpperCase();
 
         if (startDate || endDate) {
           filter.timestamp = {};
           if (startDate) filter.timestamp.$gte = new Date(startDate);
-          if (endDate) filter.timestamp.$lte = new Date(endDate);
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filter.timestamp.$lte = end;
+          }
         }
 
         if (search) {
@@ -212,14 +218,19 @@ export const auditRepository = {
       filtered = filtered.filter(l => l.entityId === entityId);
     }
 
+    if (status) {
+      filtered = filtered.filter(l => (l.status || '').toUpperCase() === status.toUpperCase());
+    }
+
     if (startDate) {
       const s = new Date(startDate).getTime();
       filtered = filtered.filter(l => new Date(l.timestamp).getTime() >= s);
     }
 
     if (endDate) {
-      const e = new Date(endDate).getTime();
-      filtered = filtered.filter(l => new Date(l.timestamp).getTime() <= e);
+      const e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(l => new Date(l.timestamp).getTime() <= e.getTime());
     }
 
     if (search) {
@@ -263,11 +274,34 @@ export const auditRepository = {
     let totalSuccess = 0;
     let totalFailed = 0;
 
+    let assetOperations = 0;
+    let custodyEvents = 0;
+    let employeeChanges = 0;
+    let serviceDeskEvents = 0;
+    let dataOperations = 0;
+    let authSessions = 0;
+
     for (const log of allLogs) {
-      byAction[log.action] = (byAction[log.action] || 0) + 1;
+      const act = log.action || '';
+      byAction[act] = (byAction[act] || 0) + 1;
       byEntityType[log.entityType] = (byEntityType[log.entityType] || 0) + 1;
       if (log.status === 'FAILED') totalFailed++;
       else totalSuccess++;
+
+      // Meaningful Operational Categorization
+      if (act.startsWith('ASSET_') || log.entityType === 'ASSET') {
+        assetOperations++;
+      } else if (act.startsWith('CUSTODY_') || act.includes('ASSIGN') || act.includes('TRANSFER') || act.includes('RETURN') || log.entityType === 'ASSIGNMENT') {
+        custodyEvents++;
+      } else if (act.startsWith('EMPLOYEE_') || log.entityType === 'EMPLOYEE') {
+        employeeChanges++;
+      } else if (act.startsWith('COMPLAINT_') || log.entityType === 'COMPLAINT') {
+        serviceDeskEvents++;
+      } else if (act.includes('EXCEL_') || act.includes('PDF_') || act.includes('IMPORT') || act.includes('EXPORT') || log.entityType === 'IMPORT' || log.entityType === 'EXPORT') {
+        dataOperations++;
+      } else if (act.includes('LOGIN') || act.includes('LOGOUT') || log.entityType === 'AUTH') {
+        authSessions++;
+      }
     }
 
     return {
@@ -275,7 +309,16 @@ export const auditRepository = {
       totalSuccess,
       totalFailed,
       byAction,
-      byEntityType
+      byEntityType,
+      categories: {
+        totalEvents: allLogs.length,
+        assetOperations,
+        custodyEvents,
+        employeeChanges,
+        serviceDeskEvents,
+        dataOperations,
+        authSessions
+      }
     };
   },
 

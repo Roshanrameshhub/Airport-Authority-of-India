@@ -66,7 +66,7 @@ export default function Sidebar({ isCollapsed, onToggle }) {
         {!isCollapsed && (
           <div className="sidebar-footer-text">
             <span className="sidebar-version-badge">AAI AMS v2.4</span>
-            <span className="sidebar-region-text">Regional HQ</span>
+            <span className="sidebar-region-text">Asset Management</span>
           </div>
         )}
         <button

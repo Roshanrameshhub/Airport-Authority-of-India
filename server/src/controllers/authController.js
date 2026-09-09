@@ -127,5 +127,24 @@ export const register = async (req, res, next) => {
 };
 
 export const logout = async (req, res) => {
+  const clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+  if (req.user) {
+    try {
+      await auditRepository.logEvent({
+        action: 'USER_LOGOUT',
+        entityType: 'AUTH',
+        entityId: req.user.username,
+        actor: {
+          userId: req.user._id,
+          username: req.user.username,
+          name: req.user.name,
+          role: req.user.role,
+          ipAddress: clientIp
+        },
+        details: { message: 'User initiated session sign-out' },
+        status: 'SUCCESS'
+      });
+    } catch {}
+  }
   return sendSuccess(res, null, 'Logged out successfully');
 };

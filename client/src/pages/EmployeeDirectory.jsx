@@ -12,7 +12,9 @@ import {
   Mail, 
   Phone,
   AlertCircle,
-  CheckCircle2 
+  CheckCircle2,
+  FileText,
+  History
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { SearchInput, SelectInput, ClearFilterButton } from '../components/ui/FormControls';
@@ -20,6 +22,7 @@ import { DataTable, TableActionBtn } from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import LoadMoreButton from '../components/ui/LoadMoreButton';
+import { downloadAuthenticatedPdf } from '../services/api';
 
 export default function EmployeeDirectory() {
   const { user, token } = useAuth();
@@ -36,6 +39,8 @@ export default function EmployeeDirectory() {
   // Detail Modal State
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [empAssets, setEmpAssets] = useState([]);
+  const [empAssetsLoading, setEmpAssetsLoading] = useState(false);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,9 +113,36 @@ export default function EmployeeDirectory() {
     return () => clearTimeout(delayDebounce);
   }, [search, selectedDept, selectedFloor, token]);
 
-  const handleOpenDetailModal = (emp) => {
+  const handleOpenDetailModal = async (emp) => {
     setSelectedEmployee(emp);
     setIsDetailModalOpen(true);
+    setEmpAssetsLoading(true);
+    setEmpAssets([]);
+
+    try {
+      const res = await fetch(`/api/v1/assignments/employee/${emp.employeeId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setEmpAssets(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load employee assigned assets:', err);
+    } finally {
+      setEmpAssetsLoading(false);
+    }
+  };
+
+  const handleDownloadSlip = async (assignmentId) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/handover/${assignmentId}/pdf`,
+        `AAI_Handover_${assignmentId}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download handover slip');
+    }
   };
 
   const handleOpenCreateModal = () => {
@@ -542,6 +574,66 @@ export default function EmployeeDirectory() {
                   {selectedEmployee.phone || 'Not Available'}
                 </span>
               </div>
+            </div>
+
+            {/* Assigned Custody Equipment */}
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
+                <strong style={{ fontSize: '0.85rem', color: 'var(--color-brand-title)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Laptop size={15} color="var(--color-brand-600)" />
+                  <span>Assigned Hardware & Equipment</span>
+                </strong>
+                <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
+                  {empAssets.filter(a => a.status === 'ACTIVE').length} Active
+                </span>
+              </div>
+
+              {empAssetsLoading ? (
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>Loading custody records...</div>
+              ) : empAssets.length === 0 ? (
+                <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>No equipment assigned to this staff member.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+                  {empAssets.map((item, idx) => (
+                    <div
+                      key={item.assignmentId || idx}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 10px',
+                        background: 'var(--color-bg-subtle)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '0.78rem'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong style={{ fontFamily: 'monospace', color: 'var(--color-brand-600)' }}>{item.assetId}</strong>
+                          <span className={`badge ${item.status === 'ACTIVE' ? 'badge-available' : 'badge-neutral'}`} style={{ fontSize: '0.62rem' }}>
+                            {item.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                          {item.assetName || 'Equipment'} &bull; Since: {new Date(item.assignedDate).toLocaleDateString()}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadSlip(item.assignmentId)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.7rem', padding: '2px 8px' }}
+                        title="Download Official Handover Slip (PDF)"
+                      >
+                        <FileText size={12} />
+                        <span>Slip</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

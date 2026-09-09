@@ -36,10 +36,7 @@ export default function Navbar({ onToggleSidebar, isSidebarCollapsed }) {
             <img src="/logo.svg" alt="AAI Logo" />
           </div>
           <div className="brand-title-group">
-            <div className="brand-top-row">
-              <span className="brand-org">AIRPORTS AUTHORITY OF INDIA</span>
-              <span className="brand-country-badge">INDIA</span>
-            </div>
+            <span className="brand-org">AIRPORTS AUTHORITY OF INDIA</span>
             <span className="brand-system">Asset Management System</span>
           </div>
         </Link>

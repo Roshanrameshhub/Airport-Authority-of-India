@@ -13,13 +13,15 @@ import {
   RefreshCw,
   Clock,
   HardDrive,
-  UserCheck
+  UserCheck,
+  FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
 import DataTable from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
+import { downloadAuthenticatedPdf } from '../services/api';
 
 const getCategoryIcon = (category = '') => {
   const cat = category.toLowerCase();
@@ -103,7 +105,7 @@ export default function EmployeeDashboard() {
       {/* Standardized Welcome Header */}
       <PageHeader
         title={`Welcome, ${user?.name || 'Staff Officer'}`}
-        subtitle={`Employee ID: ${user?.employeeId || 'AAI-STAFF'} • ${user?.designation || 'Staff Member'} • ${user?.department || 'Regional HQ'}`}
+        subtitle={`Employee ID: ${user?.employeeId || 'AAI-STAFF'} • ${user?.designation || 'Staff Member'} • ${user?.department || 'Operations'}`}
         icon={UserCheck}
       >
         <button
@@ -140,7 +142,7 @@ export default function EmployeeDashboard() {
       )}
 
       {/* Real-time Dynamic KPI Summary Cards */}
-      <div className="stats-grid">
+      <div className="stats-grid cols-4">
         <StatCard
           label="Assigned Assets"
           value={loading ? '—' : assignedAssets.length}
@@ -247,13 +249,34 @@ export default function EmployeeDashboard() {
                       </span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <Link 
-                        to="/complaints" 
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        Report Issue
-                      </Link>
+                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                          title="Download Official Handover Slip (PDF)"
+                          onClick={async () => {
+                            try {
+                              await downloadAuthenticatedPdf(
+                                `/api/v1/export/handover/asset/${asset.assetId}/pdf`,
+                                `AAI_Handover_${asset.assetId}.pdf`
+                              );
+                            } catch (err) {
+                              alert(err.message || 'Failed to download slip');
+                            }
+                          }}
+                        >
+                          <FileText size={12} />
+                          <span>Slip</span>
+                        </button>
+                        <Link 
+                          to="/complaints" 
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                        >
+                          Report Issue
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );
