@@ -419,6 +419,28 @@ export default function AssetInventory() {
     }
   };
 
+  const handleDownloadRetirementRecord = async (assetId) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/retirement/${assetId}/pdf`,
+        `AAI_Retirement_${assetId}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download asset retirement record');
+    }
+  };
+
+  const handleDownloadVerificationReport = async (campaignId) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/verification/${campaignId}/pdf`,
+        `AAI_Verification_${campaignId}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download physical verification report');
+    }
+  };
+
   const handleOpenTagModal = async (asset) => {
     setTagAsset(asset);
     setIsTagModalOpen(true);
@@ -850,27 +872,18 @@ export default function AssetInventory() {
         <div className="drawer-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }}>
           <div className="drawer-content">
             {/* Drawer Header */}
-            <div style={{
-              padding: '16px 24px',
-              borderBottom: '1px solid var(--border-subtle)',
-              background: 'var(--color-brand-900)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
+            <div className="drawer-header">
               <div>
-                <span className="badge badge-assigned" style={{ marginBottom: '4px', background: '#0284c7', color: '#ffffff' }}>
+                <span className="badge badge-assigned" style={{ marginBottom: '4px' }}>
                   {activeAsset.assetId}
                 </span>
-                <h2 style={{ color: '#ffffff', fontSize: '1.25rem', margin: 0 }}>{activeAsset.assetName}</h2>
+                <h2 className="drawer-title">{activeAsset.assetName}</h2>
               </div>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {isAdmin && activeAsset.status !== 'RETIRED' && (
                   <button
                     onClick={() => handleOpenEditModal(activeAsset)}
                     className="btn btn-secondary btn-sm"
-                    style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}
                     title="Edit Specifications"
                     id="edit-asset-drawer-btn"
                   >
@@ -880,7 +893,9 @@ export default function AssetInventory() {
                 )}
                 <button
                   onClick={() => setIsDrawerOpen(false)}
-                  style={{ background: 'none', color: '#ffffff', border: 'none', cursor: 'pointer', padding: '4px' }}
+                  style={{ background: 'none', color: 'inherit', border: 'none', cursor: 'pointer', padding: '4px' }}
+                  title="Close Drawer"
+                  aria-label="Close Drawer"
                 >
                   <X size={20} />
                 </button>
@@ -888,7 +903,7 @@ export default function AssetInventory() {
             </div>
 
             {/* Drawer Body — Full 13 Confirmed Specification Display */}
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+            <div className="drawer-body">
               {/* Custody Block */}
               <div className="card" style={{ padding: '16px', background: 'var(--color-bg-subtle)' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-brand-600)', marginBottom: '6px' }}>
@@ -896,7 +911,7 @@ export default function AssetInventory() {
                 </div>
                 {activeAsset.currentEmployeeName ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-brand-900)' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>
                       {activeAsset.currentEmployeeName}
                     </div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
@@ -912,7 +927,22 @@ export default function AssetInventory() {
                       id="download-slip-drawer-btn"
                     >
                       <FileText size={15} />
-                      <span>Download Handover Slip (PDF)</span>
+                      <span>Download Assignment Slip (PDF)</span>
+                    </button>
+                  </div>
+                ) : activeAsset.status === 'RETIRED' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--status-danger-text)', fontWeight: 600 }}>
+                      Asset Decommissioned & Retired from Institutional Inventory
+                    </div>
+                    <button
+                      onClick={() => handleDownloadRetirementRecord(activeAsset.assetId)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ width: '100%' }}
+                      id="download-retirement-drawer-btn"
+                    >
+                      <FileText size={15} />
+                      <span>Download Decommissioning Record (PDF)</span>
                     </button>
                   </div>
                 ) : (
@@ -975,28 +1005,35 @@ export default function AssetInventory() {
               {/* Location & Department */}
               <div>
                 <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Deployment Location
+                  Deployment & Physical Site Tracking
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
                   <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Department</span>
+                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Assigned Department</span>
                     <strong>{activeAsset.department}</strong>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Floor / Location</span>
+                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Physical Equipment Location</span>
                     <strong>{activeAsset.floor}</strong>
                   </div>
+                  {activeAsset.currentEmployeeName && (
+                    <div style={{ gridColumn: 'span 2', background: 'var(--color-bg-main)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-subtle)', fontSize: '0.78rem' }}>
+                      <span style={{ color: 'var(--color-text-muted)' }}>Custodian Office Base: </span>
+                      <strong>{activeAsset.currentDepartment || activeAsset.department}</strong>
+                      <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>({activeAsset.currentEmployeeName})</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Lifecycle & Warranty Timeline */}
               <div>
                 <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Lifecycle & Warranty
+                  Lifecycle, Warranty & Asset Aging
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
                   <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Install Date</span>
+                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Commission / Install Date</span>
                     <strong>{new Date(activeAsset.installDate).toLocaleDateString()}</strong>
                   </div>
                   <div>
@@ -1006,6 +1043,20 @@ export default function AssetInventory() {
                   <div>
                     <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Warranty Status</span>
                     <span className="badge badge-available">{activeAsset.warrantyStatus}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Asset Age (Depreciation)</span>
+                    <strong style={{ color: 'var(--color-brand-700)' }}>
+                      {(() => {
+                        const install = new Date(activeAsset.installDate);
+                        if (isNaN(install.getTime())) return 'N/A';
+                        const diffMs = Date.now() - install.getTime();
+                        const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+                        const years = Math.floor(diffDays / 365);
+                        const months = Math.floor((diffDays % 365) / 30);
+                        return `${years > 0 ? `${years}y ` : ''}${months}m (${diffDays}d active)`;
+                      })()}
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -1749,13 +1800,26 @@ export default function AssetInventory() {
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
                 Civil Aviation Equipment Ledger Standard &bull; Discrepancy Logging Engine
               </span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setIsVerificationModalOpen(false)}
-              >
-                Close
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {activeCampaign && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => handleDownloadVerificationReport(activeCampaign.campaignId || activeCampaign._id)}
+                    id="btn-download-verification-report"
+                  >
+                    <FileText size={14} />
+                    <span>Download Audit Report (PDF)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsVerificationModalOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           }
         >

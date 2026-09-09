@@ -10,7 +10,8 @@ import {
   RefreshCw,
   XCircle,
   ChevronRight,
-  ShieldAlert
+  ShieldAlert,
+  FileText
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
@@ -19,6 +20,7 @@ import { DataTable } from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import LoadMoreButton from '../components/ui/LoadMoreButton';
+import { downloadAuthenticatedPdf } from '../services/api';
 
 const CATEGORY_LABELS = {
   HARDWARE_FAULT: 'Hardware Fault',
@@ -139,6 +141,17 @@ export default function ComplaintDesk() {
       setLoading(false);
       setRefreshing(false);
       setLoadingMore(false);
+    }
+  };
+
+  const handleDownloadComplaintReport = async (ticketId) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/complaint/${ticketId}/pdf`,
+        `AAI_ServiceReport_${ticketId}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download IT service report');
     }
   };
 
@@ -546,16 +559,29 @@ export default function ComplaintDesk() {
                     {item.assignedTechnician?.name || 'Unassigned'}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedTicket(item);
-                      }}
-                    >
-                      <span>Manage</span>
-                      <ChevronRight size={14} />
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadComplaintReport(item.ticketId);
+                        }}
+                        title="Download Official IT Service & Fault Incident Report (PDF)"
+                      >
+                        <FileText size={13} />
+                        <span>Report</span>
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTicket(item);
+                        }}
+                      >
+                        <span>Manage</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -588,7 +614,16 @@ export default function ComplaintDesk() {
           size="lg"
           id="manage-ticket-modal"
           footer={
-            <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => handleDownloadComplaintReport(selectedTicket.ticketId)}
+                id="btn-download-ticket-report"
+              >
+                <FileText size={14} />
+                <span>Download Service Report (PDF)</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-secondary"

@@ -630,7 +630,7 @@ export default function BulkImportExport() {
             display: 'flex',
             justifyContent: 'center',
             gap: '16px',
-            marginBottom: '28px'
+            marginBottom: '16px'
           }}>
             <div className="card" style={{ padding: '12px 24px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>IMPORTED ASSETS</div>
@@ -642,6 +642,10 @@ export default function BulkImportExport() {
                 <div style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--status-maintenance-text)' }}>{commitResult.skippedCount}</div>
               </div>
             )}
+          </div>
+
+          <div style={{ maxWidth: '600px', margin: '0 auto 24px auto', padding: '8px 12px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+            * Institutional batch reconciliation: <strong>TECHNICALLY RECOMMENDED — BUSINESS CONFIRMATION REQUIRED</strong> for final fixed asset capitalization register sign-off.
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>

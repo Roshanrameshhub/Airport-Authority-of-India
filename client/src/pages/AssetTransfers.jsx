@@ -185,14 +185,29 @@ export default function AssetTransfers() {
     }
   };
 
-  const handleDownloadSlip = async (assignmentId) => {
+  const handleDownloadSlip = async (target) => {
     try {
-      await downloadAuthenticatedPdf(
-        `/api/v1/export/handover/${assignmentId}/pdf`,
-        `AAI_Handover_${assignmentId}.pdf`
-      );
+      const assignmentId = typeof target === 'object' && target !== null ? target.assignmentId : target;
+      const status = typeof target === 'object' && target !== null ? target.status : null;
+      const prevEmp = typeof target === 'object' && target !== null ? target.previousEmployeeId : null;
+
+      let endpoint = `/api/v1/export/handover/${assignmentId}/pdf`;
+      let filename = `AAI_Handover_${assignmentId}.pdf`;
+
+      if (status === 'TRANSFERRED' || prevEmp) {
+        endpoint = `/api/v1/export/transfer/${assignmentId}/pdf`;
+        filename = `AAI_Transfer_${assignmentId}.pdf`;
+      } else if (status === 'RETURNED') {
+        endpoint = `/api/v1/export/return/${assignmentId}/pdf`;
+        filename = `AAI_Return_${assignmentId}.pdf`;
+      } else if (status === 'ACTIVE') {
+        endpoint = `/api/v1/export/assignment/${assignmentId}/pdf`;
+        filename = `AAI_Assignment_${assignmentId}.pdf`;
+      }
+
+      await downloadAuthenticatedPdf(endpoint, filename);
     } catch (err) {
-      alert(err.message || 'Failed to download official handover slip');
+      alert(err.message || 'Failed to download official custody slip');
     }
   };
 
@@ -587,11 +602,11 @@ export default function AssetTransfers() {
                     </button>
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => handleDownloadSlip(item.assignmentId)}
-                      title="Download Printable Handover Slip"
+                      onClick={() => handleDownloadSlip(item)}
+                      title={`Download Official ${item.status === 'TRANSFERRED' ? 'Transfer Slip' : item.status === 'RETURNED' ? 'Return Receipt' : 'Assignment Slip'} (PDF)`}
                     >
                       <FileText size={14} />
-                      <span>Slip</span>
+                      <span>{item.status === 'TRANSFERRED' ? 'Transfer Slip' : item.status === 'RETURNED' ? 'Return Receipt' : 'Slip'}</span>
                     </button>
                   </div>
                 </td>
@@ -947,27 +962,29 @@ export default function AssetTransfers() {
       {isTimelineOpen && (
         <div className="drawer-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsTimelineOpen(false); }}>
           <div className="drawer-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--color-bg-subtle)' }}>
+            <div className="drawer-header">
               <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-brand-600)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-brand-400)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Asset Custody History
                 </div>
-                <h3 style={{ margin: '2px 0 0 0', fontSize: '1.2rem', color: 'var(--color-brand-900)' }}>
+                <h3 className="drawer-title" style={{ margin: '2px 0 0 0' }}>
                   {timelineAsset?.assetId}
                 </h3>
-                <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--color-drawer-header-text)', opacity: 0.85 }}>
                   {timelineAsset?.assetName}
                 </span>
               </div>
               <button
                 onClick={() => setIsTimelineOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                style={{ background: 'none', color: 'inherit', border: 'none', cursor: 'pointer', padding: '4px' }}
+                title="Close Drawer"
+                aria-label="Close Drawer"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
+            <div className="drawer-body">
               {historyLoading ? (
                 <div style={{ textAlign: 'center', padding: 'var(--space-10)', color: 'var(--color-text-muted)' }}>
                   <div className="pulse-dot" style={{ margin: '0 auto var(--space-3)' }} />
@@ -1081,10 +1098,10 @@ export default function AssetTransfers() {
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={() => handleDownloadSlip(selectedRecord.assignmentId)}
+                onClick={() => handleDownloadSlip(selectedRecord)}
               >
                 <FileText size={14} />
-                <span>Download Slip</span>
+                <span>Download {selectedRecord.status === 'TRANSFERRED' ? 'Transfer Slip' : selectedRecord.status === 'RETURNED' ? 'Return Receipt' : 'Custody Slip'}</span>
               </button>
               <button
                 type="button"

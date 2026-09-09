@@ -19,11 +19,13 @@ import {
   Activity,
   Users,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
 import { DataTable } from '../components/ui/DataTable';
+import { downloadAuthenticatedPdf } from '../services/api';
 
 export default function Dashboard() {
   const { token } = useAuth();
@@ -219,6 +221,17 @@ export default function Dashboard() {
     </div>
   );
 
+  const handleDownloadAmcReport = async (contractNumber) => {
+    try {
+      await downloadAuthenticatedPdf(
+        `/api/v1/export/amc/${contractNumber}/pdf`,
+        `AAI_AMC_${contractNumber}.pdf`
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to download AMC SLA agreement report');
+    }
+  };
+
   const renderAMCContracts = () => (
     <div className="card" style={{ flex: 1 }}>
       <div className="card-header" style={{ marginBottom: '4px' }}>
@@ -245,9 +258,21 @@ export default function Dashboard() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                 <strong style={{ color: 'var(--color-text-main)' }}>{amc.vendorName}</strong>
-                <span className={`badge ${amc.status === 'ACTIVE' ? 'badge-available' : amc.status === 'EXPIRING_SOON' ? 'badge-maintenance' : 'badge-neutral'}`} style={{ fontSize: '0.62rem' }}>
-                  {amc.status}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className={`badge ${amc.status === 'ACTIVE' ? 'badge-available' : amc.status === 'EXPIRING_SOON' ? 'badge-maintenance' : 'badge-neutral'}`} style={{ fontSize: '0.62rem' }}>
+                    {amc.status}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '1px 6px', fontSize: '0.62rem', height: '20px' }}
+                    onClick={() => handleDownloadAmcReport(amc.contractNumber)}
+                    title="Download AMC SLA Agreement Report (PDF)"
+                  >
+                    <FileText size={10} />
+                    <span>Report</span>
+                  </button>
+                </div>
               </div>
               <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.7rem' }}>
                 SLA: <strong>{amc.supportTier.replace(/_/g, ' ')}</strong> &bull; Desk: {amc.contactPhone || 'Support'}
