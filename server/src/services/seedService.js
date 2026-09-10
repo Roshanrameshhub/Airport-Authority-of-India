@@ -8,11 +8,22 @@ import Category from '../models/Category.js';
 import Complaint from '../models/Complaint.js';
 import { logger } from '../utils/logger.js';
 
+// ─── DEMO CREDENTIALS ────────────────────────────────────────────────────────
+// ADMIN    : Username = Admin      | Password = Admin@123
+// EMPLOYEE : Username = Employee01 | Password = Employee@123
+//
+// IMPORTANT — User model schema note:
+//   The `username` field has { lowercase: true } in the Mongoose schema, so
+//   "Admin" is stored as "admin" and "Employee01" is stored as "employee01".
+//   findByCredential() also lowercases the input before querying, so login
+//   works with any casing: "Admin", "ADMIN", "admin" all succeed.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const seedDemoAccounts = async () => {
   try {
-    logger.info('[Atlas Database Seeder] Initializing development/demo data in MongoDB Atlas...');
+    logger.info('[Demo Seeder] Starting AAI-AMS development/demo account seeding...');
 
-    // 1. Seed Core Master Departments
+    // ─── 1. Core Master Departments ──────────────────────────────────────────
     const departments = [
       { name: 'Communication, Navigation & Surveillance', code: 'CNS', floor: '2nd Floor, Technical Block', description: 'Radar, VHF communications, navigational aids' },
       { name: 'Airport Systems & Information Technology', code: 'IT', floor: '1st Floor, Technical Block', description: 'Central enterprise IT infrastructure & servers' },
@@ -21,16 +32,11 @@ export const seedDemoAccounts = async () => {
       { name: 'Finance & Accounts', code: 'FIN', floor: 'Ground Floor, Admin Wing', description: 'Regional budgeting, payroll, and auditing' },
       { name: 'Human Resources & Administration', code: 'HRA', floor: 'Ground Floor, Admin Wing', description: 'Personnel, welfare, and general administration' }
     ];
-
     for (const dept of departments) {
-      await Department.findOneAndUpdate(
-        { code: dept.code },
-        { $set: dept },
-        { upsert: true, new: true }
-      );
+      await Department.findOneAndUpdate({ code: dept.code }, { $set: dept }, { upsert: true, new: true });
     }
 
-    // 2. Seed Core Master Categories
+    // ─── 2. Core Master Categories ───────────────────────────────────────────
     const categories = [
       { name: 'Desktop PC', code: 'PC', description: 'High-performance workstations and office client PCs' },
       { name: 'Laptop', code: 'LAP', description: 'Executive and mobile operational laptops' },
@@ -39,17 +45,31 @@ export const seedDemoAccounts = async () => {
       { name: 'Online UPS', code: 'UPS', description: 'Uninterruptible power supplies for ATC, radar, and servers' },
       { name: 'Network Switch', code: 'NET', description: 'Managed switches, Cisco routers, and airport LAN hardware' }
     ];
-
     for (const cat of categories) {
-      await Category.findOneAndUpdate(
-        { code: cat.code },
-        { $set: cat },
-        { upsert: true, new: true }
-      );
+      await Category.findOneAndUpdate({ code: cat.code }, { $set: cat }, { upsert: true, new: true });
     }
 
-    // 3. Seed Employee Record
-    const demoEmployeeData = {
+    // ─── 3. Employee Master Record: AAI-EMP-01 (for Employee01 user) ─────────
+    const demoEmployee01Data = {
+      employeeId: 'AAI-EMP-01',
+      name: 'Demo Employee',
+      designation: 'Junior Executive (IT)',
+      department: 'Airport Systems & Information Technology',
+      floor: '1st Floor, Technical Block',
+      email: 'employee01@aai.local',
+      phone: '+91 98765 00001',
+      isActive: true,
+      assignedAssetsCount: 0
+    };
+    const seededEmployee01Master = await Employee.findOneAndUpdate(
+      { employeeId: 'AAI-EMP-01' },
+      { $set: demoEmployee01Data },
+      { upsert: true, new: true }
+    );
+    logger.info(`[Demo Seeder] Employee master record AAI-EMP-01 ensured: ${seededEmployee01Master.name}`);
+
+    // ─── 4. Legacy Employee Master: AAI-10842 (backward compatibility) ───────
+    const legacyEmployeeData = {
       employeeId: 'AAI-10842',
       name: 'Staff Employee',
       designation: 'Assistant Manager (CNS)',
@@ -60,60 +80,60 @@ export const seedDemoAccounts = async () => {
       isActive: true,
       assignedAssetsCount: 1
     };
-
-    const seededEmployee = await Employee.findOneAndUpdate(
-      { employeeId: demoEmployeeData.employeeId },
-      { $set: demoEmployeeData },
+    await Employee.findOneAndUpdate(
+      { employeeId: 'AAI-10842' },
+      { $set: legacyEmployeeData },
       { upsert: true, new: true }
     );
-    logger.info(`[Atlas Database Seeder] Staff Employee master record ensured: ${seededEmployee.name} (${seededEmployee.employeeId})`);
 
-    // 4. Seed / Update ADMIN Account
-    // Credentials: Username: admin | Email: admin@aai.local | Password: AAIAdmin@2026!
-    const adminPasswordHash = await bcrypt.hash('AAIAdmin@2026!', 10);
+    // ─── 5. ADMIN USER ACCOUNT ────────────────────────────────────────────────
+    //   Requested username : Admin      (stored as "admin" by Mongoose lowercase)
+    //   Requested password : Admin@123  (bcrypt-hashed, never stored plaintext)
+    //   Role               : ADMIN
+    const adminPasswordHash = await bcrypt.hash('Admin@123', 10);
     const adminUserData = {
-      username: 'admin',
+      username: 'admin',               // Mongoose lowercase: stored as "admin"
       name: 'System Administrator',
       email: 'admin@aai.local',
-      password: adminPasswordHash,
+      password: adminPasswordHash,     // bcrypt hash of "Admin@123"
       role: 'ADMIN',
       employeeId: 'AAI-ADMIN-001',
       designation: 'Joint General Manager (IT)',
       department: 'Airport Systems & Information Technology',
       isActive: true
     };
-
     const seededAdmin = await User.findOneAndUpdate(
       { $or: [{ username: 'admin' }, { email: 'admin@aai.local' }] },
       { $set: adminUserData },
       { upsert: true, new: true }
     );
-    logger.info(`[Atlas Database Seeder] Admin account ensured in MongoDB Atlas: ${seededAdmin.username} (${seededAdmin.email}) [Role: ${seededAdmin.role}]`);
+    logger.info(`[Demo Seeder] ADMIN account seeded: username='${seededAdmin.username}' | role='${seededAdmin.role}' | isActive=${seededAdmin.isActive}`);
 
-    // 5. Seed / Update EMPLOYEE Account
-    // Credentials: Username: employee | Email: employee@aai.local | Password: AAIEmployee@2026!
-    const employeePasswordHash = await bcrypt.hash('AAIEmployee@2026!', 10);
-    const employeeUserData = {
-      username: 'employee',
-      name: 'Staff Employee',
-      email: 'employee@aai.local',
-      password: employeePasswordHash,
+    // ─── 6. EMPLOYEE USER ACCOUNT ─────────────────────────────────────────────
+    //   Requested username : Employee01   (stored as "employee01" by Mongoose lowercase)
+    //   Requested password : Employee@123 (bcrypt-hashed, never stored plaintext)
+    //   Role               : EMPLOYEE
+    //   Employee ID        : AAI-EMP-01   (linked to Employee master created above)
+    const employeePasswordHash = await bcrypt.hash('Employee@123', 10);
+    const employee01UserData = {
+      username: 'employee01',          // Mongoose lowercase: stored as "employee01"
+      name: 'Demo Employee',
+      email: 'employee01@aai.local',
+      password: employeePasswordHash,  // bcrypt hash of "Employee@123"
       role: 'EMPLOYEE',
-      employeeId: 'AAI-10842',
-      designation: 'Assistant Manager (CNS)',
-      department: 'Communication, Navigation & Surveillance',
+      employeeId: 'AAI-EMP-01',
+      designation: 'Junior Executive (IT)',
+      department: 'Airport Systems & Information Technology',
       isActive: true
     };
-
-    const seededEmployeeUser = await User.findOneAndUpdate(
-      { $or: [{ username: 'employee' }, { email: 'employee@aai.local' }] },
-      { $set: employeeUserData },
+    const seededEmployee01User = await User.findOneAndUpdate(
+      { $or: [{ username: 'employee01' }, { email: 'employee01@aai.local' }] },
+      { $set: employee01UserData },
       { upsert: true, new: true }
     );
-    logger.info(`[Atlas Database Seeder] Employee account ensured in MongoDB Atlas: ${seededEmployeeUser.username} (${seededEmployeeUser.email}) [Role: ${seededEmployeeUser.role}]`);
+    logger.info(`[Demo Seeder] EMPLOYEE account seeded: username='${seededEmployee01User.username}' | role='${seededEmployee01User.role}' | employeeId='${seededEmployee01User.employeeId}' | isActive=${seededEmployee01User.isActive}`);
 
-    // 6. Seed Realistic Assigned Asset for the Employee
-    // Asset ID: AAI-REG-PC-2024-0001
+    // ─── 7. Demo Asset (assigned to legacy AAI-10842) ────────────────────────
     const demoAssetData = {
       assetId: 'AAI-REG-PC-2024-0001',
       assetName: 'Dell OptiPlex 7090 MT Workstation',
@@ -137,75 +157,68 @@ export const seedDemoAccounts = async () => {
       currentAssignmentDate: new Date('2024-01-16'),
       isArchived: false
     };
-
     const seededAsset = await Asset.findOneAndUpdate(
-      { assetId: demoAssetData.assetId },
+      { assetId: 'AAI-REG-PC-2024-0001' },
       { $set: demoAssetData },
       { upsert: true, new: true }
     );
-    logger.info(`[Atlas Database Seeder] Assigned Asset ensured: ${seededAsset.assetName} (${seededAsset.assetId}) -> Custodian: ${seededAsset.currentEmployeeName}`);
+    logger.info(`[Demo Seeder] Demo asset ensured: ${seededAsset.assetName} (${seededAsset.assetId})`);
 
-    // 7. Seed Corresponding Active Assignment History
-    const demoAssignmentData = {
-      assignmentId: 'ASN-2024-0001',
-      assetId: 'AAI-REG-PC-2024-0001',
-      assetName: 'Dell OptiPlex 7090 MT Workstation',
-      employeeId: 'AAI-10842',
-      employeeName: 'Staff Employee',
-      department: 'Communication, Navigation & Surveillance',
-      floor: '2nd Floor, Technical Block',
-      designation: 'Assistant Manager (CNS)',
-      assignedDate: new Date('2024-01-16'),
-      status: 'ACTIVE',
-      remarks: 'Initial official allocation for CNS radar monitoring duties'
-    };
-
+    // ─── 8. Demo Assignment History ──────────────────────────────────────────
     await AssetAssignment.findOneAndUpdate(
-      { assignmentId: demoAssignmentData.assignmentId },
-      { $set: demoAssignmentData },
-      { upsert: true, new: true }
-    );
-
-    // 8. Seed a Sample Complaint Ticket for this Employee
-    const demoComplaintData = {
-      ticketId: 'TKT-2024-0001',
-      assetId: 'AAI-REG-PC-2024-0001',
-      assetName: 'Dell OptiPlex 7090 MT Workstation',
-      category: 'HARDWARE_FAULT',
-      title: 'Display port flickering on dual monitor setup',
-      description: 'Secondary display flickers intermittently during radar monitoring session. Cable and adapter inspected.',
-      severity: 'LOW',
-      priority: 'P4_LOW',
-      status: 'OPEN',
-      reportedBy: {
-        employeeId: 'AAI-10842',
-        name: 'Staff Employee',
-        email: 'employee@aai.local'
+      { assignmentId: 'ASN-2024-0001' },
+      {
+        $set: {
+          assignmentId: 'ASN-2024-0001',
+          assetId: 'AAI-REG-PC-2024-0001',
+          assetName: 'Dell OptiPlex 7090 MT Workstation',
+          employeeId: 'AAI-10842',
+          employeeName: 'Staff Employee',
+          department: 'Communication, Navigation & Surveillance',
+          floor: '2nd Floor, Technical Block',
+          designation: 'Assistant Manager (CNS)',
+          assignedDate: new Date('2024-01-16'),
+          status: 'ACTIVE',
+          remarks: 'Initial official allocation for CNS radar monitoring duties'
+        }
       },
-      department: 'Communication, Navigation & Surveillance',
-      floor: '2nd Floor, Technical Block',
-      createdAt: new Date('2024-06-10')
-    };
+      { upsert: true, new: true }
+    );
 
+    // ─── 9. Sample Complaint Ticket ──────────────────────────────────────────
     await Complaint.findOneAndUpdate(
-      { ticketId: demoComplaintData.ticketId },
-      { $set: demoComplaintData },
+      { ticketId: 'TKT-2024-0001' },
+      {
+        $set: {
+          ticketId: 'TKT-2024-0001',
+          assetId: 'AAI-REG-PC-2024-0001',
+          assetName: 'Dell OptiPlex 7090 MT Workstation',
+          category: 'HARDWARE_FAULT',
+          title: 'Display port flickering on dual monitor setup',
+          description: 'Secondary display flickers intermittently during radar monitoring session.',
+          severity: 'LOW',
+          priority: 'P4_LOW',
+          status: 'OPEN',
+          reportedBy: { employeeId: 'AAI-10842', name: 'Staff Employee', email: 'employee@aai.local' },
+          department: 'Communication, Navigation & Surveillance',
+          floor: '2nd Floor, Technical Block',
+          createdAt: new Date('2024-06-10')
+        }
+      },
       { upsert: true, new: true }
     );
 
     logger.info('================================================================================');
-    logger.info('✔ MongoDB Atlas Seed Successful: TWO Development/Demo Accounts Created & Verified');
-    logger.info('  1. ADMIN:    admin    | admin@aai.local    | Role: ADMIN');
-    logger.info('  2. EMPLOYEE: employee | employee@aai.local | Role: EMPLOYEE (ID: AAI-10842)');
+    logger.info('✔ AAI-AMS DEMO SEED COMPLETE');
+    logger.info('  ADMIN    : Username=Admin      | Password=Admin@123    | Role=ADMIN');
+    logger.info('  EMPLOYEE : Username=Employee01 | Password=Employee@123 | Role=EMPLOYEE | EmpID=AAI-EMP-01');
+    logger.info('  Usernames stored lowercase in DB: admin / employee01');
+    logger.info('  Login with any casing works (Admin, ADMIN, admin all match).');
     logger.info('================================================================================');
 
-    return {
-      admin: seededAdmin,
-      employee: seededEmployeeUser,
-      asset: seededAsset
-    };
+    return { admin: seededAdmin, employee: seededEmployee01User, asset: seededAsset };
   } catch (err) {
-    logger.error(`[Atlas Database Seeder] Error seeding demo accounts: ${err.message}`, err);
+    logger.error(`[Demo Seeder] Error: ${err.message}`, err);
     throw err;
   }
 };

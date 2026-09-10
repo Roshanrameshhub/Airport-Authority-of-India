@@ -7,14 +7,20 @@ import { logger } from '../utils/logger.js';
 const memoryUsers = new Map();
 
 /**
- * Seed initial administrative and employee accounts
+ * Seed initial administrative and employee accounts.
+ * Credentials:
+ *   ADMIN    : username=admin      (login as "Admin")      | password=Admin@123
+ *   EMPLOYEE : username=employee01 (login as "Employee01") | password=Employee@123
+ *
+ * These are also stored in MongoDB via seedService.js (npm run seed:demo).
+ * This in-memory registry is the offline/fallback path when MongoDB is down.
  */
 const seedMemoryUsers = () => {
   if (memoryUsers.size === 0) {
-    const adminPasswordHash = bcrypt.hashSync('AAIAdmin@2026!', 10);
-    const employeePasswordHash = bcrypt.hashSync('AAIEmployee@2026!', 10);
-    const legacyAdminHash = bcrypt.hashSync('Admin@123', 10);
-    const legacyEmpHash = bcrypt.hashSync('Employee@123', 10);
+    const adminPasswordHash = bcrypt.hashSync('Admin@123', 10);
+    const employeePasswordHash = bcrypt.hashSync('Employee@123', 10);
+    const legacyAdminHash = bcrypt.hashSync('AAIAdmin@2026!', 10);
+    const legacyEmpHash = bcrypt.hashSync('AAIEmployee@2026!', 10);
 
     const adminUser = {
       _id: '66d000000000000000000001',
@@ -23,7 +29,7 @@ const seedMemoryUsers = () => {
       email: 'admin@aai.local',
       password: adminPasswordHash,
       role: 'ADMIN',
-      employeeId: 'AAI-ADM-001',
+      employeeId: 'AAI-ADMIN-001',
       designation: 'Joint General Manager (IT)',
       department: 'Airport Systems & Information Technology',
       isActive: true,
@@ -39,8 +45,32 @@ const seedMemoryUsers = () => {
       }
     };
 
-    const employeeUser = {
+    const employee01User = {
       _id: '66d000000000000000000002',
+      username: 'employee01',
+      name: 'Demo Employee',
+      email: 'employee01@aai.local',
+      password: employeePasswordHash,
+      role: 'EMPLOYEE',
+      employeeId: 'AAI-EMP-01',
+      designation: 'Junior Executive (IT)',
+      department: 'Airport Systems & Information Technology',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      comparePassword: async function (candidatePassword) {
+        return (await bcrypt.compare(candidatePassword, this.password)) || (await bcrypt.compare(candidatePassword, legacyEmpHash));
+      },
+      toJSON: function () {
+        const copy = { ...this };
+        delete copy.password;
+        return copy;
+      }
+    };
+
+    // Legacy employee accounts for backward compatibility with existing tests
+    const legacyEmployeeUser = {
+      _id: '66d000000000000000000003',
       username: 'employee',
       name: 'Staff Employee',
       email: 'employee@aai.local',
@@ -62,19 +92,21 @@ const seedMemoryUsers = () => {
       }
     };
 
-    const legacyUser = {
-      ...employeeUser,
-      _id: '66d000000000000000000003',
+    const legacyRoshanUser = {
+      ...legacyEmployeeUser,
+      _id: '66d000000000000000000004',
       username: 'roshan.r',
       email: 'roshan.r@aai.aero'
     };
 
     memoryUsers.set('admin', adminUser);
-    memoryUsers.set('employee', employeeUser);
-    memoryUsers.set('roshan.r', legacyUser);
-    logger.info('Memory User Registry seeded with default Admin and Employee accounts.');
+    memoryUsers.set('employee01', employee01User);
+    memoryUsers.set('employee', legacyEmployeeUser);
+    memoryUsers.set('roshan.r', legacyRoshanUser);
+    logger.info('[Memory Registry] Seeded: admin (Admin@123 / ADMIN), employee01 (Employee@123 / EMPLOYEE), plus legacy test accounts');
   }
 };
+
 
 // Initialize seed
 seedMemoryUsers();

@@ -368,43 +368,46 @@ export const exportHandoverPdf = async (req, res, next) => {
 };
 
 /**
- * Legacy Asset Handover slip generator
+ * Asset Handover Certificate — dedicated endpoint for /handover/asset/:assetId/pdf
+ * Generates a standalone professional A4 handover certificate for the given asset,
+ * including all asset details, custodian info, QR code, and dual signature blocks.
  */
 export const exportAssetHandoverPdf = async (req, res, next) => {
   try {
     const { assetId } = req.params;
-    let targetAssignment = await assignmentRepository.findCurrentAssignment(assetId);
 
-    if (!targetAssignment) {
-      const history = await assignmentRepository.findHistoryByAsset(assetId);
-      if (!history || history.length === 0) {
-        return sendError(res, `No assignment or custody records exist for asset '${assetId}'`, 404);
-      }
-      targetAssignment = history[0];
+    // Validate asset exists first
+    const asset = await assetRepository.findById(assetId);
+    if (!asset) {
+      return sendError(res, `Asset '${assetId}' not found`, 404);
     }
 
-    if (req.user?.role === 'EMPLOYEE' && req.user.employeeId !== targetAssignment.employeeId) {
-      return sendError(res, 'Unauthorized: Staff employees can only download their own official handover slips', 403);
+    // Employee guard: employees can only download their own asset's handover slip
+    if (req.user?.role === 'EMPLOYEE' &&
+        asset.currentEmployeeId &&
+        req.user.employeeId !== asset.currentEmployeeId) {
+      return sendError(res, 'Unauthorized: You can only download handover slips for assets assigned to you', 403);
     }
 
-    const buffer = await exportService.generateHandoverPdf(targetAssignment.assignmentId);
+    const buffer = await exportService.generateAssetHandoverPdf(assetId);
 
     await auditRepository.logEvent({
       action: 'PDF_GENERATED',
       entityType: 'EXPORT',
-      entityId: targetAssignment.assignmentId,
+      entityId: assetId,
       actor: getAuditActor(req),
       details: {
-        documentType: 'HANDOVER_SLIP_PDF',
-        assignmentId: targetAssignment.assignmentId,
-        assetId: targetAssignment.assetId,
-        employeeId: targetAssignment.employeeId
+        documentType: 'ASSET_HANDOVER_CERTIFICATE_PDF',
+        assetId,
+        assetName: asset.assetName,
+        custodian: asset.currentEmployeeName || 'Unassigned'
       },
       status: 'SUCCESS'
     });
 
+    const dateStr = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="AAI_Handover_${targetAssignment.assignmentId}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="AAI_Handover_Certificate_${assetId}_${dateStr}.pdf"`);
     return res.send(buffer);
   } catch (error) {
     next(error);

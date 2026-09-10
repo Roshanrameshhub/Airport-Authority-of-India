@@ -8,8 +8,16 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+        // Use 127.0.0.1 (IPv4) instead of localhost which resolves to ::1 (IPv6)
+        // on Windows, causing ECONNRESET / ECONNREFUSED errors in the Vite proxy.
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.error('[Vite Proxy Error]', err.message);
+          });
+        }
       }
     }
   }

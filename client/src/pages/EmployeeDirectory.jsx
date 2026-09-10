@@ -140,8 +140,11 @@ export default function EmployeeDirectory() {
         `/api/v1/export/handover/${assignmentId}/pdf`,
         `AAI_Handover_${assignmentId}.pdf`
       );
+      setNotification({ type: 'success', message: `Handover slip for assignment ${assignmentId} downloaded.` });
+      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
-      alert(err.message || 'Failed to download handover slip');
+      setNotification({ type: 'error', message: err.message || 'Failed to download handover slip.' });
+      setTimeout(() => setNotification(null), 6000);
     }
   };
 

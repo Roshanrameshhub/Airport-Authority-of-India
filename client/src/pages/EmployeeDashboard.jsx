@@ -39,6 +39,8 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   const fetchEmployeeData = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -102,6 +104,31 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="page-body">
+      {/* PDF download toast notifications */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '1.25rem',
+          right: '1.25rem',
+          zIndex: 9999,
+          padding: '0.85rem 1.25rem',
+          background: notification.type === 'success' ? 'var(--status-active-bg, #D1FAE5)' : 'var(--status-danger-bg, #FEE2E2)',
+          border: `1px solid ${notification.type === 'success' ? 'var(--status-active-border, #6EE7B7)' : 'var(--status-danger-border, #FCA5A5)'}`,
+          borderRadius: 'var(--radius-md, 8px)',
+          color: notification.type === 'success' ? 'var(--status-active-text, #065F46)' : 'var(--status-danger-text, #991B1B)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontSize: '0.875rem',
+          fontWeight: 500,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          maxWidth: '380px'
+        }}>
+          <span>{notification.type === 'success' ? '✓' : '⚠'}</span>
+          <span>{notification.message}</span>
+        </div>
+      )}
+
       {/* Standardized Welcome Header */}
       <PageHeader
         title={`Welcome, ${user?.name || 'Staff Officer'}`}
@@ -253,21 +280,36 @@ export default function EmployeeDashboard() {
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
-                          title="Download Official Handover Slip (PDF)"
+                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', opacity: pdfLoading ? 0.7 : 1 }}
+                          title="Download Official Handover Certificate (PDF)"
+                          disabled={pdfLoading}
                           onClick={async () => {
+                            if (pdfLoading) return;
+                            setPdfLoading(true);
+                            setNotification(null);
                             try {
                               await downloadAuthenticatedPdf(
                                 `/api/v1/export/handover/asset/${asset.assetId}/pdf`,
-                                `AAI_Handover_${asset.assetId}.pdf`
+                                `AAI_Handover_Certificate_${asset.assetId}.pdf`
                               );
+                              setNotification({
+                                type: 'success',
+                                message: `Handover Certificate for '${asset.assetId}' downloaded.`
+                              });
+                              setTimeout(() => setNotification(null), 4000);
                             } catch (err) {
-                              alert(err.message || 'Failed to download slip');
+                              setNotification({
+                                type: 'error',
+                                message: err.message || 'Failed to download handover certificate.'
+                              });
+                              setTimeout(() => setNotification(null), 6000);
+                            } finally {
+                              setPdfLoading(false);
                             }
                           }}
                         >
                           <FileText size={12} />
-                          <span>Slip</span>
+                          <span>{pdfLoading ? 'Generating…' : 'Slip'}</span>
                         </button>
                         <Link 
                           to="/complaints" 

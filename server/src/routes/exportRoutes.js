@@ -30,8 +30,10 @@ router.get('/complaint/:ticketId/pdf', authorize('ADMIN', 'EMPLOYEE'), exportCom
 router.get('/retirement/:assetId/pdf', authorize('ADMIN'), exportRetirementPdf);
 router.get('/amc/:contractNumber/pdf', authorize('ADMIN'), exportAmcPdf);
 
-// Legacy Handover slip compatibility
-router.get('/handover/:assignmentId/pdf', authorize('ADMIN', 'EMPLOYEE'), exportHandoverPdf);
+// More-specific asset-based handover route MUST come before the generic :assignmentId route.
+// Express matches routes in order — if /handover/:assignmentId/pdf is first, the literal
+// segment "asset" gets captured as assignmentId, routing to the wrong controller.
 router.get('/handover/asset/:assetId/pdf', authorize('ADMIN', 'EMPLOYEE'), exportAssetHandoverPdf);
+router.get('/handover/:assignmentId/pdf', authorize('ADMIN', 'EMPLOYEE'), exportHandoverPdf);
 
 export default router;

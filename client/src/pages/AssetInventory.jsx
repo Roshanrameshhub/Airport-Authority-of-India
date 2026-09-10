@@ -110,6 +110,7 @@ export default function AssetInventory() {
   const [formError, setFormError] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchFiltersMaster = async () => {
     try {
@@ -409,13 +410,27 @@ export default function AssetInventory() {
   };
 
   const handleDownloadHandoverSlip = async (assetId) => {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    setNotification(null);
     try {
       await downloadAuthenticatedPdf(
         `/api/v1/export/handover/asset/${assetId}/pdf`,
-        `AAI_Handover_${assetId}.pdf`
+        `AAI_Handover_Certificate_${assetId}.pdf`
       );
+      setNotification({
+        type: 'success',
+        message: `Handover Certificate for '${assetId}' downloaded successfully.`
+      });
+      setTimeout(() => setNotification(null), 4000);
     } catch (err) {
-      alert(err.message || 'Failed to download handover slip');
+      setNotification({
+        type: 'error',
+        message: err.message || 'Failed to download handover certificate. Please try again.'
+      });
+      setTimeout(() => setNotification(null), 6000);
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -948,11 +963,12 @@ export default function AssetInventory() {
                     <button
                       onClick={() => handleDownloadHandoverSlip(activeAsset.assetId)}
                       className="btn btn-secondary btn-sm"
-                      style={{ width: '100%', justifyContent: 'center' }}
+                      style={{ width: '100%', justifyContent: 'center', opacity: pdfLoading ? 0.7 : 1 }}
                       id="download-slip-drawer-btn"
+                      disabled={pdfLoading}
                     >
                       <FileText size={14} />
-                      <span>Download Assignment Slip (PDF)</span>
+                      <span>{pdfLoading ? 'Generating PDF…' : 'Download Handover Certificate (PDF)'}</span>
                     </button>
                   </>
                 ) : activeAsset.status === 'RETIRED' ? (

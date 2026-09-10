@@ -206,8 +206,11 @@ export default function AssetTransfers() {
       }
 
       await downloadAuthenticatedPdf(endpoint, filename);
+      setSuccessMessage(`Document for assignment ${assignmentId} downloaded successfully.`);
+      setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
-      alert(err.message || 'Failed to download official custody slip');
+      setError(err.message || 'Failed to download official custody slip. Please try again.');
+      setTimeout(() => setError(null), 6000);
     }
   };
 

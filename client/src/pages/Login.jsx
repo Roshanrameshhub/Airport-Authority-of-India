@@ -209,6 +209,56 @@ export default function Login() {
             <span>{isSubmitting ? 'Authenticating...' : 'Sign In'}</span>
           </button>
         </form>
+
+        {/* Demo Accounts Quick-Fill */}
+        <div style={{
+          marginTop: '1.5rem',
+          paddingTop: '1.25rem',
+          borderTop: '1px solid var(--border-subtle)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
+            Demo / Development Accounts
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => { setCredential('Admin'); setPassword('Admin@123'); }}
+              style={{
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-strong)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--color-text-main)',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+              id="demo-admin-fill-btn"
+            >
+              <div style={{ fontWeight: 600, color: 'var(--color-brand-500, #0284c7)' }}>Admin</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Admin@123</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setCredential('Employee01'); setPassword('Employee@123'); }}
+              style={{
+                padding: '0.5rem 0.75rem',
+                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-strong)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--color-text-main)',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+              id="demo-employee-fill-btn"
+            >
+              <div style={{ fontWeight: 600, color: 'var(--color-brand-500, #0284c7)' }}>Employee01</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>Employee@123</div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

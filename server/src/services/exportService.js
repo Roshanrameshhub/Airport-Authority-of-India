@@ -324,7 +324,7 @@ export const exportService = {
     // Locate previous custodian from assignment history
     let prevCustodian = null;
     try {
-      const history = await assignmentRepository.findAssetHistory(assignment.assetId);
+      const history = await assignmentRepository.findHistoryByAsset(assignment.assetId);
       const sorted = [...history].sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
       const currentIdx = sorted.findIndex(h => h.assignmentId === assignment.assignmentId);
       if (currentIdx >= 0 && currentIdx < sorted.length - 1) {
@@ -1051,5 +1051,223 @@ export const exportService = {
       return exportService.generateReturnPdf(assignmentId);
     }
     return exportService.generateAssignmentPdf(assignmentId);
+  },
+
+  /**
+   * 8. ASSET HANDOVER CERTIFICATE: Standalone professional handover certificate for a given asset.
+   * Called from GET /api/v1/export/handover/asset/:assetId/pdf
+   * Generates a full A4 document with asset details, custodian info, QR code, and dual sign-off.
+   */
+  generateAssetHandoverPdf: async (assetId) => {
+    const asset = await assetRepository.findById(assetId);
+    if (!asset) {
+      const err = new Error(`Asset '${assetId}' not found`);
+      err.statusCode = 404;
+      throw err;
+    }
+
+    // Attempt to get current active assignment for custodian details
+    let assignment = await assignmentRepository.findCurrentAssignment(assetId);
+    if (!assignment) {
+      // Fall back to most-recent historical assignment
+      const history = await assignmentRepository.findHistoryByAsset(assetId);
+      if (history && history.length > 0) {
+        assignment = history[0];
+      }
+    }
+
+    // Generate QR code as a base64 PNG buffer
+    let qrBuffer = null;
+    try {
+      const QRCode = (await import('qrcode')).default;
+      const qrText = [
+        `AssetID: ${asset.assetId}`,
+        `Name: ${asset.assetName}`,
+        `Serial: ${asset.serialNumber || 'N/A'}`,
+        `Custodian: ${asset.currentEmployeeName || 'Unassigned'}`,
+        `Dept: ${asset.department || 'N/A'}`,
+        `Status: ${asset.status}`,
+        `Generated: ${new Date().toISOString()}`
+      ].join('\n');
+      qrBuffer = await QRCode.toBuffer(qrText, { type: 'png', width: 100, margin: 1 });
+    } catch {
+      // QR generation is non-fatal — proceed without it
+    }
+
+    return new Promise((resolve, reject) => {
+      const doc = createDoc(
+        `AAI Asset Handover Certificate - ${asset.assetId}`,
+        'Official IT Equipment Handover & Custody Certificate'
+      );
+
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', reject);
+
+      // ─── HEADER BANNER ───────────────────────────────────────────────
+      renderHeaderBanner(doc, 'IT EQUIPMENT HANDOVER & CUSTODY CERTIFICATE');
+
+      // ─── REFERENCE / STATUS BAR ──────────────────────────────────────
+      const issueDate = assignment?.assignedDate
+        ? new Date(assignment.assignedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      const statusColor =
+        asset.status === 'ASSIGNED'    ? '#059669' :
+        asset.status === 'AVAILABLE'   ? '#0284C7' :
+        asset.status === 'RETIRED'     ? '#DC2626' :
+        asset.status === 'DISPOSED'    ? '#B91C1C' : '#D97706';
+
+      renderReferenceBar(doc, 115, 'Asset Tag ID', asset.assetId, issueDate, 'Status', asset.status, statusColor);
+
+      // ─── QR CODE (top-right floating) ────────────────────────────────
+      if (qrBuffer) {
+        try {
+          doc.image(qrBuffer, 455, 130, { width: 80, height: 80 });
+          doc.fillColor(docColors.muted).font('Helvetica').fontSize(6.5)
+            .text('Scan to verify asset', 455, 212, { width: 80, align: 'center' });
+        } catch { /* non-fatal */ }
+      }
+
+      let y = 155;
+      const c1 = 50, c2 = 190, c3 = 320, c4 = 440;
+
+      // ─── SECTION 1: ASSET IDENTIFICATION ────────────────────────────
+      renderSectionTitle(doc, y, '1. ASSET IDENTIFICATION & TECHNICAL SPECIFICATIONS');
+      y += 22;
+
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Asset Tag ID:', c1, y);
+      doc.fillColor(docColors.primary).font('Helvetica-Bold').fontSize(9).text(asset.assetId, c2, y);
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Category:', c3, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(asset.category || '—', c4, y);
+
+      y += 17;
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Asset Name / Description:', c1, y);
+      doc.fillColor(docColors.text).font('Helvetica-Bold').text(asset.assetName || '—', c2, y, { width: 250 });
+
+      y += 17;
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Make / Brand:', c1, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(asset.make || '—', c2, y);
+      doc.fillColor(docColors.muted).font('Helvetica').text('Model Number:', c3, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(asset.model || '—', c4, y);
+
+      y += 17;
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Serial Number (OEM):', c1, y);
+      doc.fillColor(docColors.text).font('Helvetica-Bold').fontSize(9).text(asset.serialNumber || '—', c2, y);
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Physical Condition:', c3, y);
+      doc.fillColor(docColors.text).font('Helvetica-Bold').fillColor(
+        asset.condition === 'EXCELLENT' ? '#059669' :
+        asset.condition === 'GOOD'      ? '#0284C7' :
+        asset.condition === 'FAIR'      ? '#D97706' : '#DC2626'
+      ).text(asset.condition || 'GOOD', c4, y);
+
+      y += 17;
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Operating System:', c1, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(
+        [asset.operatingSystem, asset.osVersion].filter(Boolean).join(' ') || 'N/A', c2, y
+      );
+      doc.fillColor(docColors.muted).font('Helvetica').text('Installation Date:', c3, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(
+        asset.installDate ? new Date(asset.installDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—', c4, y
+      );
+
+      y += 17;
+      doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Warranty Valid Till:', c1, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(
+        asset.warrantyEndDate ? new Date(asset.warrantyEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—', c2, y
+      );
+      doc.fillColor(docColors.muted).font('Helvetica').text('Warranty Status:', c3, y);
+      doc.fillColor(asset.warrantyStatus === 'ACTIVE' ? '#059669' : '#DC2626').font('Helvetica-Bold')
+        .text(asset.warrantyStatus || 'ACTIVE', c4, y);
+
+      // ─── SECTION 2: CUSTODIAN DETAILS ───────────────────────────────
+      y += 28;
+      renderSectionTitle(doc, y, '2. ASSIGNED CUSTODIAN & DEPARTMENT DETAILS');
+      y += 22;
+
+      if (assignment) {
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Custodian Name:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica-Bold').text(assignment.employeeName || asset.currentEmployeeName || '—', c2, y);
+        doc.fillColor(docColors.muted).font('Helvetica').text('Employee ID:', c3, y);
+        doc.fillColor(docColors.primary).font('Helvetica-Bold').text(assignment.employeeId || asset.currentEmployeeId || '—', c4, y);
+
+        y += 17;
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Designation:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica').text(assignment.designation || asset.currentDesignation || '—', c2, y);
+        doc.fillColor(docColors.muted).font('Helvetica').text('Department:', c3, y);
+        doc.fillColor(docColors.text).font('Helvetica').text(assignment.department || asset.department || '—', c4, y);
+
+        y += 17;
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Floor / Location:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica').text(assignment.floor || asset.floor || '—', c2, y);
+        doc.fillColor(docColors.muted).font('Helvetica').text('Handover Date:', c3, y);
+        doc.fillColor(docColors.text).font('Helvetica-Bold').text(issueDate, c4, y);
+
+        y += 17;
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Issued / Sanctioned By:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica').text(assignment.assignedBy || 'Regional IT Admin', c2, y);
+        doc.fillColor(docColors.muted).font('Helvetica').text('Assignment Status:', c3, y);
+        doc.fillColor(assignment.status === 'ACTIVE' ? '#059669' : '#D97706').font('Helvetica-Bold')
+          .text(assignment.status || 'ACTIVE', c4, y);
+      } else {
+        // Asset not yet assigned
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Custodian Name:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica-Bold').text(asset.currentEmployeeName || 'Unassigned — In IT Store Pool', c2, y);
+
+        y += 17;
+        doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Department:', c1, y);
+        doc.fillColor(docColors.text).font('Helvetica').text(asset.department || 'IT Store / Reserve Pool', c2, y);
+      }
+
+      // ─── SECTION 3: REMARKS ─────────────────────────────────────────
+      if (asset.remarks || (assignment && assignment.remarks)) {
+        y += 28;
+        renderSectionTitle(doc, y, '3. OFFICIAL REMARKS & OPERATIONAL NOTES');
+        y += 20;
+        const remarksText = [asset.remarks, assignment?.remarks].filter(Boolean).join(' | ') || '—';
+        doc.rect(c1 - 10, y, 515, Math.max(30, 12 + Math.ceil(remarksText.length / 80) * 12))
+          .fill(docColors.boxBg).stroke(docColors.border);
+        doc.fillColor(docColors.text).font('Helvetica').fontSize(8)
+          .text(remarksText, c1, y + 8, { width: 490, lineGap: 2 });
+        y += Math.max(30, 12 + Math.ceil(remarksText.length / 80) * 12) + 5;
+      }
+
+      // ─── CUSTODY UNDERTAKING BOX ────────────────────────────────────
+      y += 18;
+      doc.rect(40, y, 515, 62).fill(docColors.alertBg).stroke(docColors.alertBorder);
+      doc.fillColor(docColors.alertText).font('Helvetica-Bold').fontSize(8)
+        .text('CUSTODY ACKNOWLEDGEMENT & COMPLIANCE UNDERTAKING:', 52, y + 8);
+      doc.font('Helvetica').fontSize(7.5).text(
+        'I hereby acknowledge the receipt of the IT equipment specified above in good working order. ' +
+        'I undertake to safeguard and use it exclusively for official purposes in accordance with the ' +
+        'IT Security and Asset Governance Policies of Airports Authority of India (AAI). ' +
+        'The asset shall not be relocated, modified, or transferred without formal sanction from the Regional IT Division.',
+        52, y + 22, { width: 497, lineGap: 1.8 }
+      );
+      y += 78;
+
+      // ─── DUAL SIGNATURE BLOCKS ───────────────────────────────────────
+      doc.moveTo(50, y + 38).lineTo(235, y + 38).strokeColor('#9CA3AF').lineWidth(0.5).stroke();
+      doc.fillColor(docColors.text).font('Helvetica-Bold').fontSize(8.5)
+        .text('ISSUED BY — IT Division / Sanctioning Officer', 50, y + 44);
+      doc.font('Helvetica').fontSize(7.5).fillColor(docColors.muted)
+        .text(`Officer: ${assignment?.assignedBy || 'Regional IT Admin'}`, 50, y + 55)
+        .text('Designation: IT Division Officer / Nodal Officer', 50, y + 65)
+        .text('Signature & Official Stamp: ___________________', 50, y + 75);
+
+      doc.moveTo(355, y + 38).lineTo(545, y + 38).strokeColor('#9CA3AF').lineWidth(0.5).stroke();
+      doc.fillColor(docColors.text).font('Helvetica-Bold').fontSize(8.5)
+        .text('RECEIVED BY — Staff Custodian', 355, y + 44);
+      doc.font('Helvetica').fontSize(7.5).fillColor(docColors.muted)
+        .text(`Name: ${assignment?.employeeName || asset.currentEmployeeName || '________________'}`, 355, y + 55)
+        .text(`Emp ID: ${assignment?.employeeId || asset.currentEmployeeId || '________________'}`, 355, y + 65)
+        .text('Signature & Date: ______________________________', 355, y + 75);
+
+      // ─── FOOTER ──────────────────────────────────────────────────────
+      renderFooter(doc, asset.assetId);
+      doc.end();
+    });
   }
 };
+
