@@ -871,15 +871,16 @@ export default function AssetInventory() {
       {isDrawerOpen && activeAsset && (
         <div className="drawer-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }}>
           <div className="drawer-content">
-            {/* Drawer Header */}
+
+            {/* ── DRAWER HEADER ── */}
             <div className="drawer-header">
-              <div>
-                <span className="badge badge-assigned" style={{ marginBottom: '4px' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <span className="badge badge-assigned" style={{ marginBottom: '4px', display: 'inline-block' }}>
                   {activeAsset.assetId}
                 </span>
-                <h2 className="drawer-title">{activeAsset.assetName}</h2>
+                <h2 className="drawer-title" style={{ wordBreak: 'break-word' }}>{activeAsset.assetName}</h2>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, marginLeft: '12px' }}>
                 {isAdmin && activeAsset.status !== 'RETIRED' && (
                   <button
                     onClick={() => handleOpenEditModal(activeAsset)}
@@ -893,7 +894,7 @@ export default function AssetInventory() {
                 )}
                 <button
                   onClick={() => setIsDrawerOpen(false)}
-                  style={{ background: 'none', color: 'inherit', border: 'none', cursor: 'pointer', padding: '4px' }}
+                  style={{ background: 'none', color: 'inherit', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
                   title="Close Drawer"
                   aria-label="Close Drawer"
                 >
@@ -902,151 +903,185 @@ export default function AssetInventory() {
               </div>
             </div>
 
-            {/* Drawer Body — Full 13 Confirmed Specification Display */}
+            {/* ── DRAWER BODY ── */}
             <div className="drawer-body">
-              {/* Custody Block */}
-              <div className="card" style={{ padding: '16px', background: 'var(--color-bg-subtle)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-brand-600)', marginBottom: '6px' }}>
+
+              {/* ── SECTION 1: CURRENT CUSTODIAN ── */}
+              <section style={{ background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', padding: '16px' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-brand-600)', marginBottom: '12px' }}>
                   Current Custodian / Holder
                 </div>
+
                 {activeAsset.currentEmployeeName ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text-main)' }}>
-                      {activeAsset.currentEmployeeName}
+                  <>
+                    {/* Custodian 2-col info grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: '12px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '2px' }}>Name</span>
+                        <strong style={{ fontSize: '0.95rem', wordBreak: 'break-word', display: 'block', color: 'var(--color-text-main)' }}>
+                          {activeAsset.currentEmployeeName}
+                        </strong>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '2px' }}>Employee ID</span>
+                        <code style={{ fontWeight: 700, color: 'var(--color-brand-700)', fontSize: '0.85rem' }}>
+                          {activeAsset.currentEmployeeId}
+                        </code>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '2px' }}>Designation</span>
+                        <strong style={{ fontSize: '0.82rem', wordBreak: 'break-word', display: 'block', color: 'var(--color-text-main)' }}>
+                          {activeAsset.currentDesignation || 'N/A'}
+                        </strong>
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: '2px' }}>Assigned On</span>
+                        <strong style={{ fontSize: '0.82rem', display: 'block', color: 'var(--color-text-main)' }}>
+                          {activeAsset.currentAssignmentDate
+                            ? new Date(activeAsset.currentAssignmentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : 'N/A'}
+                        </strong>
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                      {activeAsset.currentDesignation} &bull; <code>{activeAsset.currentEmployeeId}</code>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                      Assigned On: {activeAsset.currentAssignmentDate ? new Date(activeAsset.currentAssignmentDate).toLocaleDateString() : 'N/A'}
-                    </div>
+
+                    {/* PDF Button — its own full-width row */}
                     <button
                       onClick={() => handleDownloadHandoverSlip(activeAsset.assetId)}
                       className="btn btn-secondary btn-sm"
-                      style={{ marginTop: '10px', width: '100%' }}
+                      style={{ width: '100%', justifyContent: 'center' }}
                       id="download-slip-drawer-btn"
                     >
-                      <FileText size={15} />
+                      <FileText size={14} />
                       <span>Download Assignment Slip (PDF)</span>
                     </button>
-                  </div>
+                  </>
                 ) : activeAsset.status === 'RETIRED' ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--status-danger-text)', fontWeight: 600 }}>
-                      Asset Decommissioned & Retired from Institutional Inventory
+                  <>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--status-danger-text)', fontWeight: 600, marginBottom: '12px' }}>
+                      Asset Decommissioned &amp; Retired from Institutional Inventory
                     </div>
                     <button
                       onClick={() => handleDownloadRetirementRecord(activeAsset.assetId)}
                       className="btn btn-secondary btn-sm"
-                      style={{ width: '100%' }}
+                      style={{ width: '100%', justifyContent: 'center' }}
                       id="download-retirement-drawer-btn"
                     >
-                      <FileText size={15} />
+                      <FileText size={14} />
                       <span>Download Decommissioning Record (PDF)</span>
                     </button>
-                  </div>
+                  </>
                 ) : (
-                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                    Item is in organizational reserve / Available in stock.
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                    This item is currently in the IT store pool — not assigned to any individual.
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Hardware Specifications */}
-              <div>
-                <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Hardware Specifications
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Make / Manufacturer</span>
-                    <strong>{activeAsset.make}</strong>
+              {/* ── SECTION 2: HARDWARE SPECIFICATIONS ── */}
+              <section>
+                <h3 className="drawer-section-heading">Hardware Specifications</h3>
+                <div className="drawer-spec-grid">
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Make / Manufacturer</span>
+                    <strong className="drawer-spec-value">{activeAsset.make}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Model Number</span>
-                    <strong>{activeAsset.model}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Model Number</span>
+                    <strong className="drawer-spec-value">{activeAsset.model}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>OEM Serial Number</span>
-                    <code style={{ fontWeight: 700 }}>{activeAsset.serialNumber}</code>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">OEM Serial Number</span>
+                    <code style={{ fontWeight: 700, wordBreak: 'break-all', display: 'block', color: 'var(--color-text-main)' }}>
+                      {activeAsset.serialNumber}
+                    </code>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Category</span>
-                    <strong>{activeAsset.category}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Category</span>
+                    <strong className="drawer-spec-value">{activeAsset.category}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Physical Condition</span>
-                    <span className="badge badge-neutral">{activeAsset.condition}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Physical Condition</span>
+                    <span className="badge badge-neutral" style={{ marginTop: '2px', display: 'inline-block' }}>{activeAsset.condition}</span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Current Status</span>
-                    <span className="badge badge-available">{activeAsset.status}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Current Status</span>
+                    <span
+                      className={`badge ${
+                        activeAsset.status === 'ASSIGNED' ? 'badge-assigned'
+                        : activeAsset.status === 'UNDER_MAINTENANCE' ? 'badge-maintenance'
+                        : activeAsset.status === 'RETIRED' || activeAsset.status === 'DISPOSED' ? 'badge-neutral'
+                        : 'badge-available'
+                      }`}
+                      style={{ marginTop: '2px', display: 'inline-block' }}
+                    >
+                      {activeAsset.status}
+                    </span>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Operating System & Software */}
-              <div>
-                <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Operating System & Environment
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Type of OS</span>
-                    <strong>{activeAsset.operatingSystem || 'N/A'}</strong>
+              {/* ── SECTION 3: OPERATING SYSTEM ── */}
+              <section>
+                <h3 className="drawer-section-heading">Operating System &amp; Environment</h3>
+                <div className="drawer-spec-grid">
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Type of OS</span>
+                    <strong className="drawer-spec-value">{activeAsset.operatingSystem || 'N/A'}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>OS Version / Build</span>
-                    <strong>{activeAsset.osVersion || 'N/A'}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">OS Version / Build</span>
+                    <strong className="drawer-spec-value">{activeAsset.osVersion || 'N/A'}</strong>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Location & Department */}
-              <div>
-                <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Deployment & Physical Site Tracking
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Assigned Department</span>
-                    <strong>{activeAsset.department}</strong>
+              {/* ── SECTION 4: DEPLOYMENT & LOCATION ── */}
+              <section>
+                <h3 className="drawer-section-heading">Deployment &amp; Physical Location</h3>
+                <div className="drawer-spec-grid">
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Department</span>
+                    <strong className="drawer-spec-value" style={{ wordBreak: 'break-word' }}>{activeAsset.department}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Physical Equipment Location</span>
-                    <strong>{activeAsset.floor}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Physical Location / Floor</span>
+                    <strong className="drawer-spec-value" style={{ wordBreak: 'break-word' }}>{activeAsset.floor}</strong>
                   </div>
-                  {activeAsset.currentEmployeeName && (
-                    <div style={{ gridColumn: 'span 2', background: 'var(--color-bg-main)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: '1px dashed var(--border-subtle)', fontSize: '0.78rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)' }}>Custodian Office Base: </span>
-                      <strong>{activeAsset.currentDepartment || activeAsset.department}</strong>
-                      <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>({activeAsset.currentEmployeeName})</span>
-                    </div>
-                  )}
                 </div>
-              </div>
+              </section>
 
-              {/* Lifecycle & Warranty Timeline */}
-              <div>
-                <h3 style={{ fontSize: '0.9375rem', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  Lifecycle, Warranty & Asset Aging
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Commission / Install Date</span>
-                    <strong>{new Date(activeAsset.installDate).toLocaleDateString()}</strong>
+              {/* ── SECTION 5: WARRANTY ── */}
+              <section>
+                <h3 className="drawer-section-heading">Lifecycle, Warranty &amp; Asset Aging</h3>
+                <div className="drawer-spec-grid">
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Commission / Install Date</span>
+                    <strong className="drawer-spec-value">
+                      {activeAsset.installDate ? new Date(activeAsset.installDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                    </strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Warranty End Date</span>
-                    <strong>{new Date(activeAsset.warrantyEndDate).toLocaleDateString()}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Warranty End Date</span>
+                    <strong className="drawer-spec-value">
+                      {activeAsset.warrantyEndDate ? new Date(activeAsset.warrantyEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                    </strong>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Warranty Status</span>
-                    <span className="badge badge-available">{activeAsset.warrantyStatus}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Warranty Status</span>
+                    <span
+                      className={`badge ${
+                        activeAsset.warrantyStatus === 'ACTIVE' ? 'badge-available'
+                        : activeAsset.warrantyStatus === 'EXPIRING_SOON' ? 'badge-maintenance'
+                        : 'badge-danger'
+                      }`}
+                      style={{ marginTop: '2px', display: 'inline-block' }}
+                    >
+                      {activeAsset.warrantyStatus || 'UNKNOWN'}
+                    </span>
                   </div>
-                  <div>
-                    <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem' }}>Asset Age (Depreciation)</span>
-                    <strong style={{ color: 'var(--color-brand-700)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="drawer-spec-label">Asset Age</span>
+                    <strong className="drawer-spec-value" style={{ color: 'var(--color-brand-700)' }}>
                       {(() => {
                         const install = new Date(activeAsset.installDate);
                         if (isNaN(install.getTime())) return 'N/A';
@@ -1054,135 +1089,139 @@ export default function AssetInventory() {
                         const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
                         const years = Math.floor(diffDays / 365);
                         const months = Math.floor((diffDays % 365) / 30);
-                        return `${years > 0 ? `${years}y ` : ''}${months}m (${diffDays}d active)`;
+                        return `${years > 0 ? `${years}y ` : ''}${months}m (${diffDays}d)`;
                       })()}
                     </strong>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Remarks */}
+              {/* ── SECTION 6: REMARKS ── */}
               {activeAsset.remarks && (
-                <div>
-                  <h3 style={{ fontSize: '0.9375rem', marginBottom: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                    Remarks & Operational Notes
-                  </h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', background: 'var(--color-bg-subtle)', padding: '12px', borderRadius: 'var(--radius-md)', margin: 0 }}>
+                <section>
+                  <h3 className="drawer-section-heading">Remarks &amp; Operational Notes</h3>
+                  <p style={{
+                    fontSize: '0.85rem',
+                    color: 'var(--color-text-secondary)',
+                    background: 'var(--color-bg-subtle)',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    margin: 0,
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.6
+                  }}>
                     {activeAsset.remarks}
                   </p>
-                </div>
+                </section>
               )}
 
-              {/* Custody Architecture & Institutional Policy */}
-              <div style={{ background: 'var(--color-bg-subtle)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-brand-600)' }}>
-                    Custody Model & Governance
-                  </span>
-                  <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }}>
-                    Institutional Policy
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                  <span className="badge badge-assigned">
-                    {activeAsset.currentEmployeeName ? 'INDIVIDUAL CUSTODIAN' : 'SECTION / IT POOL CUSTODY'}
-                  </span>
-                  <span className="badge badge-neutral">
-                    MAKER / CHECKER VERIFIED
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', margin: 0, fontStyle: 'italic' }}>
-                  * Institutional custody allocation: <strong>TECHNICALLY RECOMMENDED — BUSINESS CONFIRMATION REQUIRED</strong>
-                </p>
-              </div>
-
-              {/* Chronological Custody History */}
-              <div>
+              {/* ── SECTION 7: CUSTODY / TRANSFER HISTORY ── */}
+              <section>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  <h3 style={{ fontSize: '0.9375rem', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ fontSize: '0.9375rem', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-text-main)' }}>
                     <History size={15} color="var(--color-brand-600)" />
-                    <span>Custody & Transfer History</span>
+                    <span>Custody &amp; Transfer History</span>
                   </h3>
-                  <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>{drawerHistory.length} events</span>
+                  <span className="badge badge-neutral" style={{ fontSize: '0.65rem', flexShrink: 0 }}>{drawerHistory.length} events</span>
                 </div>
                 {drawerHistoryLoading ? (
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>Loading custody timeline...</div>
                 ) : drawerHistory.length === 0 ? (
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>No custody transfer records for this equipment.</div>
                 ) : (
-                  <div className="custody-timeline-container" style={{ margin: '8px 0 8px 6px' }}>
+                  <div className="custody-timeline-container" style={{ marginLeft: '4px' }}>
                     {drawerHistory.map((h, i) => (
                       <div key={h.assignmentId || i} className="custody-timeline-item">
-                        <div className="custody-timeline-dot" style={{ background: h.status === 'ACTIVE' ? '#10B981' : '#3B82F6' }} />
-                        <div className="custody-timeline-card" style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
-                            <span>{h.employeeName} ({h.employeeId})</span>
-                            <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }}>{h.status}</span>
+                        <div className="custody-timeline-dot" style={{ background: h.status === 'ACTIVE' ? '#10B981' : '#3B82F6', flexShrink: 0 }} />
+                        <div className="custody-timeline-card" style={{ padding: '10px 12px', minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', fontSize: '0.8rem', fontWeight: 600, flexWrap: 'wrap' }}>
+                            <span style={{ wordBreak: 'break-word', minWidth: 0 }}>{h.employeeName} ({h.employeeId})</span>
+                            <span className="badge badge-neutral" style={{ fontSize: '0.62rem', flexShrink: 0 }}>{h.status}</span>
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                            {new Date(h.assignedDate).toLocaleDateString()} {h.returnedDate ? `→ Ret: ${new Date(h.returnedDate).toLocaleDateString()}` : '(Current Custody)'} &bull; Reason: {h.transferReason}
+                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '3px', wordBreak: 'break-word' }}>
+                            {new Date(h.assignedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {h.returnedDate
+                              ? ` → Returned: ${new Date(h.returnedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+                              : ' (Current Custody)'}
+                            {h.transferReason && <span> &bull; {h.transferReason}</span>}
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Linked Complaint & Repair History */}
-              <div>
+              {/* ── SECTION 8: COMPLAINT / REPAIR TICKETS ── */}
+              <section>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                  <h3 style={{ fontSize: '0.9375rem', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <h3 style={{ fontSize: '0.9375rem', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-text-main)' }}>
                     <LifeBuoy size={15} color="var(--color-brand-600)" />
-                    <span>Service Desk & Repair Tickets</span>
+                    <span>Service Desk &amp; Repair Tickets</span>
                   </h3>
-                  <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>{drawerComplaints.length} tickets</span>
+                  <span className="badge badge-neutral" style={{ fontSize: '0.65rem', flexShrink: 0 }}>{drawerComplaints.length} tickets</span>
                 </div>
                 {drawerHistoryLoading ? (
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>Loading tickets...</div>
                 ) : drawerComplaints.length === 0 ? (
                   <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', padding: '8px 0' }}>No active or past repair tickets for this asset.</div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {drawerComplaints.map((c, i) => (
-                      <div key={c.ticketId || i} style={{ padding: '8px 10px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '0.75rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong style={{ fontFamily: 'monospace' }}>{c.ticketId}</strong>
-                          <span className={`badge ${c.severity === 'CRITICAL' ? 'badge-danger' : 'badge-neutral'}`} style={{ fontSize: '0.62rem' }}>
+                      <div key={c.ticketId || i} style={{ padding: '10px 12px', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <strong style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--color-text-main)', flexShrink: 0 }}>{c.ticketId}</strong>
+                          <span
+                            className={`badge ${
+                              c.severity === 'CRITICAL' || c.severity === 'HIGH' ? 'badge-danger'
+                              : c.severity === 'MEDIUM' ? 'badge-maintenance'
+                              : 'badge-neutral'
+                            }`}
+                            style={{ fontSize: '0.62rem' }}
+                          >
                             {c.severity} &bull; {c.status}
                           </span>
                         </div>
-                        <div style={{ marginTop: '2px', color: 'var(--color-text-secondary)' }}>{c.issueDescription}</div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-main)', marginBottom: '2px', wordBreak: 'break-word' }}>
+                          {c.title}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', wordBreak: 'break-word' }}>
+                          {c.description}
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Physical Audit Quick Action */}
-              <div style={{ display: 'flex', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ flex: 1 }}
-                  onClick={() => {
-                    setIsDrawerOpen(false);
-                    handleOpenVerificationModal(activeAsset.assetId);
-                  }}
-                >
-                  <ClipboardCheck size={14} />
-                  <span>Audit Verification</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ flex: 1 }}
-                  onClick={() => handleOpenTagModal(activeAsset)}
-                >
-                  <QrCode size={14} />
-                  <span>Print QR Tag</span>
-                </button>
-              </div>
+              {/* ── SECTION 9: QUICK ACTIONS ── */}
+              <section style={{ paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ flex: '1 1 140px' }}
+                    onClick={() => {
+                      setIsDrawerOpen(false);
+                      handleOpenVerificationModal(activeAsset.assetId);
+                    }}
+                  >
+                    <ClipboardCheck size={14} />
+                    <span>Audit Verification</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ flex: '1 1 140px' }}
+                    onClick={() => handleOpenTagModal(activeAsset)}
+                  >
+                    <QrCode size={14} />
+                    <span>Print QR Tag</span>
+                  </button>
+                </div>
+              </section>
+
             </div>
           </div>
         </div>

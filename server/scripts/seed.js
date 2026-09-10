@@ -12,6 +12,7 @@ import AssetAssignment from '../src/models/AssetAssignment.js';
 import Complaint from '../src/models/Complaint.js';
 import AuditLog from '../src/models/AuditLog.js';
 import VendorAMC from '../src/models/VendorAMC.js';
+import { seedDemoAccounts } from '../src/services/seedService.js';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aai-asset-management';
 
@@ -351,10 +352,14 @@ const seedDatabase = async () => {
     ]);
     console.log(`✔ Seeded ${auditEvents.length} audit baseline events.\n`);
 
+    console.log('Ensuring standard demo accounts in database...');
+    await seedDemoAccounts();
+    console.log('✔ Standard demo accounts ensured.\n');
+
     console.log('====================================================');
     console.log('✔ DATABASE SEEDING COMPLETED SUCCESSFULLY!');
-    console.log('  Admin User:     admin / Admin@123');
-    console.log('  Employee User:  roshan.r / Employee@123');
+    console.log('  Admin User:     admin / AAIAdmin@2026!');
+    console.log('  Employee User:  employee / AAIEmployee@2026!');
     console.log('====================================================');
 
     await mongoose.disconnect();
