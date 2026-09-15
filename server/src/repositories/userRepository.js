@@ -195,5 +195,60 @@ export const userRepository = {
     if (user) {
       user.lastLogin = now;
     }
+  },
+
+  /**
+   * Find user by associated Employee ID
+   */
+  findByEmployeeId: async (employeeId) => {
+    if (!employeeId) return null;
+    const cleanId = employeeId.trim();
+
+    if (mongoose.connection.readyState === 1) {
+      return User.findOne({
+        employeeId: new RegExp(`^${cleanId}$`, 'i')
+      });
+    }
+
+    for (const user of memoryUsers.values()) {
+      if (user.employeeId && user.employeeId.toUpperCase() === cleanId.toUpperCase()) {
+        return user;
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Update user password safely (hashes in pre-save or in memory)
+   */
+  updatePassword: async (id, newPlainPassword) => {
+    if (mongoose.connection.readyState === 1) {
+      const user = await User.findById(id);
+      if (!user) return null;
+      user.password = newPlainPassword;
+      await user.save();
+      return user;
+    }
+
+    const user = await userRepository.findById(id);
+    if (!user) return null;
+    user.password = await bcrypt.hash(newPlainPassword, 10);
+    user.updatedAt = new Date();
+    return user;
+  },
+
+  /**
+   * Enable or disable user login
+   */
+  setUserStatus: async (id, isActive) => {
+    if (mongoose.connection.readyState === 1) {
+      return User.findByIdAndUpdate(id, { isActive }, { new: true });
+    }
+
+    const user = await userRepository.findById(id);
+    if (!user) return null;
+    user.isActive = isActive;
+    user.updatedAt = new Date();
+    return user;
   }
 };

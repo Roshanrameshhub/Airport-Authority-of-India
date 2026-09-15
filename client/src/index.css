@@ -334,6 +334,7 @@ button {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
+  position: relative;
   background-color: var(--color-bg-app);
 }
 
@@ -343,16 +344,19 @@ button {
   flex-direction: row;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   position: relative;
 }
 
 .app-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   width: 100%;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow-x: hidden;
 }
 
 /* ==========================================================================
@@ -2484,3 +2488,194 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Multi-Excel Data Ingestion & Clean Master Data Pipeline Styles
+   ========================================================================== */
+
+.multi-wizard-progress {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 8px 4px;
+  scrollbar-width: thin;
+}
+
+.multi-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  cursor: default;
+  opacity: 0.5;
+  transition: opacity var(--transition-fast);
+}
+
+.multi-wizard-step.active {
+  opacity: 1;
+}
+
+.multi-wizard-step.completed {
+  opacity: 0.85;
+}
+
+.multi-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.multi-wizard-step.active .multi-step-badge {
+  background: var(--color-brand-600);
+  color: #ffffff;
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px var(--color-brand-100);
+}
+
+.multi-wizard-step.completed .multi-step-badge {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+.multi-step-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.multi-step-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  white-space: nowrap;
+}
+
+.multi-step-sub {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.multi-file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast);
+}
+
+.multi-file-card:hover {
+  border-color: var(--color-brand-400);
+}
+
+.confidence-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.confidence-pill.high {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.confidence-pill.medium {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.confidence-pill.ambiguous {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.confidence-pill.unmapped {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.conflict-card {
+  background: var(--color-bg-card);
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.conflict-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.conflict-option-box {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.conflict-option-box.selected {
+  border-color: var(--color-brand-600);
+  background: var(--color-brand-50);
+}
+
+.conflict-provenance {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.clean-metric-chip {
+  padding: 10px 14px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.clean-metric-num {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-brand-900);
+  line-height: 1.1;
+  margin-top: 4px;
+}
+
+.clean-metric-title {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+}

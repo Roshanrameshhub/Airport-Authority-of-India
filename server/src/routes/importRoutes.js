@@ -2,8 +2,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import {
   downloadTemplate,
-  validateImport,
-  commitImport
+  analyzeFiles,
+  unlockWorkbook,
+  updateMappings,
+  reconcileData,
+  resolveConflicts,
+  commitImport,
+  validateImport
 } from '../controllers/importController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -13,7 +18,7 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 25 * 1024 * 1024 // 25MB total limit for multi-file uploads
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -34,8 +39,18 @@ const upload = multer({
 router.use(protect);
 router.use(authorize('ADMIN'));
 
+// Endpoints
 router.get('/template', downloadTemplate);
-router.post('/validate', upload.single('file'), validateImport);
+
+// Multi-File Pipeline
+router.post('/analyze', upload.any(), analyzeFiles);
+router.post('/unlock/:importToken', unlockWorkbook);
+router.put('/mappings/:importToken', updateMappings);
+router.post('/reconcile/:importToken', reconcileData);
+router.post('/resolve/:importToken', resolveConflicts);
 router.post('/commit', commitImport);
+
+// Legacy Single-File Endpoint (Backward Compatibility)
+router.post('/validate', upload.single('file'), validateImport);
 
 export default router;

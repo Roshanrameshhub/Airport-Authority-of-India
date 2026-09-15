@@ -10,7 +10,7 @@
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seed_demo.js",
     "verify:demo": "node scripts/verify_demo.js",
-    "test": "node --test test/foundation.test.js test/auth.test.js test/employee.test.js test/asset.test.js test/transfer.test.js test/import.test.js test/export.test.js test/complaint.test.js test/dashboard.test.js test/e2e.test.js test/tag_amc.test.js test/audit_fixes.test.js test/enterprise_refinement.test.js test/enterprise_documents.test.js"
+    "test": "node --test test/foundation.test.js test/auth.test.js test/employee.test.js test/asset.test.js test/transfer.test.js test/import.test.js test/multi_import.test.js test/export.test.js test/complaint.test.js test/dashboard.test.js test/e2e.test.js test/tag_amc.test.js test/audit_fixes.test.js test/enterprise_refinement.test.js test/enterprise_documents.test.js test/real_world_workbook.test.js test/password_excel.test.js"
   },
   "keywords": [
     "aai",
@@ -31,9 +31,11 @@
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
     "multer": "^2.3.0",
+    "officecrypto-tool": "^0.0.19",
     "pdfkit": "^0.20.2",
     "qrcode": "^1.5.4",
     "xlsx": "^0.18.5",
+    "xlsx-populate": "^1.21.0",
     "zod": "^3.24.1"
   }
 }

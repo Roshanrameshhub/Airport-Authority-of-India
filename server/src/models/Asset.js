@@ -107,6 +107,10 @@ const assetSchema = new mongoose.Schema({
   isArchived: {
     type: Boolean,
     default: false
+  },
+  customFields: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 }, {
   timestamps: true,

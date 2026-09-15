@@ -10,19 +10,22 @@ export default function ThemeToggle() {
       type="button"
       id="theme-toggle-btn"
       onClick={toggleTheme}
-      className="theme-toggle-btn"
-      title={isDark ? 'Switch to Light Theme (Current: Dark)' : 'Switch to Dark Theme (Current: Light)'}
+      className={`theme-toggle-btn ${isDark ? 'is-dark' : 'is-light'}`}
+      title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
       aria-label={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
     >
-      <span className={`theme-toggle-icon-wrap ${isDark ? 'is-dark' : 'is-light'}`}>
+      <span className="theme-toggle-icon-wrap">
         {isDark ? (
-          <Sun size={17} className="theme-icon sun-icon" />
+          <Moon size={14} className="theme-icon moon-icon" />
         ) : (
-          <Moon size={17} className="theme-icon moon-icon" />
+          <Sun size={14} className="theme-icon sun-icon" />
         )}
       </span>
       <span className="theme-toggle-label">
-        {isDark ? 'Light' : 'Dark'}
+        {isDark ? 'Dark' : 'Light'}
+      </span>
+      <span className="theme-toggle-switch-track" aria-hidden="true">
+        <span className="theme-toggle-switch-thumb" />
       </span>
     </button>
   );

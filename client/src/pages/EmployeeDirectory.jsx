@@ -14,7 +14,13 @@ import {
   AlertCircle,
   CheckCircle2,
   FileText,
-  History
+  History,
+  KeyRound,
+  Copy,
+  Check,
+  UserCheck,
+  UserX,
+  RefreshCw
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { SearchInput, SelectInput, ClearFilterButton } from '../components/ui/FormControls';
@@ -42,6 +48,14 @@ export default function EmployeeDirectory() {
   const [empAssets, setEmpAssets] = useState([]);
   const [empAssetsLoading, setEmpAssetsLoading] = useState(false);
 
+  // Account Management & Confirmation Modal States
+  const [createdAccountModalData, setCreatedAccountModalData] = useState(null);
+  const [accountStatus, setAccountStatus] = useState(null);
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [resetPasswordResult, setResetPasswordResult] = useState(null);
+  const [accountActionLoading, setAccountActionLoading] = useState(false);
+  const [copiedState, setCopiedState] = useState(null);
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' or 'EDIT'
@@ -53,7 +67,8 @@ export default function EmployeeDirectory() {
     department: '',
     floor: '',
     email: '',
-    phone: ''
+    phone: '',
+    createLoginAccount: true
   });
   const [formError, setFormError] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -118,19 +133,36 @@ export default function EmployeeDirectory() {
     setIsDetailModalOpen(true);
     setEmpAssetsLoading(true);
     setEmpAssets([]);
+    setAccountStatus(null);
+    setResetPasswordResult(null);
 
-    try {
-      const res = await fetch(`/api/v1/assignments/employee/${emp.employeeId}`, {
+    // Fetch assigned assets
+    fetch(`/api/v1/assignments/employee/${emp.employeeId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setEmpAssets(data.data || []);
+        }
+      })
+      .catch(err => console.error('Failed to load employee assigned assets:', err))
+      .finally(() => setEmpAssetsLoading(false));
+
+    // Fetch employee login account status (if admin)
+    if (user?.role === 'ADMIN') {
+      setAccountLoading(true);
+      fetch(`/api/v1/employees/${emp.employeeId}/account-status`, {
         headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEmpAssets(data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to load employee assigned assets:', err);
-    } finally {
-      setEmpAssetsLoading(false);
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setAccountStatus(data.data);
+          }
+        })
+        .catch(err => console.error('Failed to load employee account status:', err))
+        .finally(() => setAccountLoading(false));
     }
   };
 
@@ -158,7 +190,8 @@ export default function EmployeeDirectory() {
       department: '',
       floor: '',
       email: '',
-      phone: ''
+      phone: '',
+      createLoginAccount: true
     });
     setFormError('');
     setIsModalOpen(true);
@@ -174,7 +207,8 @@ export default function EmployeeDirectory() {
       department: emp.department,
       floor: emp.floor,
       email: emp.email || '',
-      phone: emp.phone || ''
+      phone: emp.phone || '',
+      createLoginAccount: false
     });
     setFormError('');
     setIsModalOpen(true);
@@ -204,17 +238,122 @@ export default function EmployeeDirectory() {
       }
 
       setIsModalOpen(false);
-      setNotification({
-        type: 'success',
-        message: modalMode === 'CREATE' ? 'Staff member registered successfully' : 'Employee profile updated'
-      });
-      setTimeout(() => setNotification(null), 4000);
       fetchEmployees(1, false);
+
+      if (modalMode === 'CREATE' && data.data?.accountCreated && data.data?.accountDetails) {
+        setCreatedAccountModalData(data.data.accountDetails);
+      } else {
+        setNotification({
+          type: 'success',
+          message: modalMode === 'CREATE' ? 'Staff member registered successfully' : 'Employee profile updated'
+        });
+        setTimeout(() => setNotification(null), 4000);
+      }
     } catch (err) {
       setFormError(err.message);
     } finally {
       setFormSubmitting(false);
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedEmployee) return;
+    if (!window.confirm(`Generate a new temporary password for ${selectedEmployee.name} (${selectedEmployee.employeeId})? The previous password will immediately stop working.`)) {
+      return;
+    }
+
+    setAccountActionLoading(true);
+    try {
+      const res = await fetch(`/api/v1/employees/${selectedEmployee.employeeId}/reset-password`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to reset password');
+      }
+
+      setResetPasswordResult(data.data);
+      setNotification({ type: 'success', message: `New temporary password generated for ${selectedEmployee.name}` });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleToggleLogin = async (targetActive) => {
+    if (!selectedEmployee) return;
+    const actionName = targetActive ? 'enable' : 'disable';
+    if (!window.confirm(`Are you sure you want to ${actionName} login access for ${selectedEmployee.name} (${selectedEmployee.employeeId})?`)) {
+      return;
+    }
+
+    setAccountActionLoading(true);
+    try {
+      const res = await fetch(`/api/v1/employees/${selectedEmployee.employeeId}/toggle-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive: targetActive })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || `Failed to ${actionName} login`);
+      }
+
+      setAccountStatus(prev => ({ ...prev, isActive: targetActive }));
+      setNotification({
+        type: 'success',
+        message: targetActive ? 'Login access enabled' : 'Login access disabled'
+      });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleCreateLogin = async () => {
+    if (!selectedEmployee) return;
+    setAccountActionLoading(true);
+    try {
+      const res = await fetch(`/api/v1/employees/${selectedEmployee.employeeId}/create-login`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to create login account');
+      }
+
+      setAccountStatus({
+        hasAccount: true,
+        employeeId: selectedEmployee.employeeId,
+        username: selectedEmployee.employeeId,
+        isActive: true
+      });
+      setResetPasswordResult(data.data);
+      setNotification({ type: 'success', message: `Login account created for ${selectedEmployee.name}` });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message });
+      setTimeout(() => setNotification(null), 5000);
+    } finally {
+      setAccountActionLoading(false);
+    }
+  };
+
+  const handleCopyCredentials = (text, key) => {
+    navigator.clipboard.writeText(text);
+    setCopiedState(key);
+    setTimeout(() => setCopiedState(null), 3000);
   };
 
   const handleDeleteEmployee = async (empId, empName) => {
@@ -579,6 +718,170 @@ export default function EmployeeDirectory() {
               </div>
             </div>
 
+            {/* Account & Login Management (Admin only) */}
+            {isAdmin && (
+              <div style={{
+                marginTop: '16px',
+                padding: '14px 16px',
+                backgroundColor: 'var(--color-bg-subtle)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <KeyRound size={16} color="var(--color-brand-600)" />
+                    <strong style={{ fontSize: '0.86rem', color: 'var(--color-text-main)' }}>
+                      Login Account & Access Controls
+                    </strong>
+                  </div>
+
+                  {accountLoading ? (
+                    <span style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)' }}>Checking status...</span>
+                  ) : accountStatus?.hasAccount ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className={`badge ${accountStatus.isActive ? 'badge-available' : 'badge-maintenance'}`} style={{ fontSize: '0.68rem' }}>
+                        {accountStatus.isActive ? '● Login Active' : '○ Login Disabled'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="badge badge-neutral" style={{ fontSize: '0.68rem' }}>
+                      No Login Account
+                    </span>
+                  )}
+                </div>
+
+                {accountLoading ? (
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>Loading account details...</div>
+                ) : accountStatus?.hasAccount ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '0.8rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--color-text-muted)' }}>Username: </span>
+                        <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-brand-600)' }}>
+                          {accountStatus.username || selectedEmployee.employeeId}
+                        </strong>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          id="btn-reset-password"
+                          disabled={accountActionLoading}
+                          onClick={handleResetPassword}
+                          title="Generate a new strong temporary password for this user"
+                        >
+                          <KeyRound size={13} />
+                          <span>Reset Password</span>
+                        </button>
+
+                        {accountStatus.isActive ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            id="btn-disable-login"
+                            style={{ color: 'var(--status-danger-text)' }}
+                            disabled={accountActionLoading}
+                            onClick={() => handleToggleLogin(false)}
+                            title="Prevent this user from logging in"
+                          >
+                            <UserX size={13} />
+                            <span>Disable Login</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            id="btn-enable-login"
+                            disabled={accountActionLoading}
+                            onClick={() => handleToggleLogin(true)}
+                            title="Re-activate this user's login access"
+                          >
+                            <UserCheck size={13} />
+                            <span>Enable Login</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Reset Password Result Confirmation Banner */}
+                    {resetPasswordResult && (
+                      <div style={{
+                        padding: '12px 14px',
+                        backgroundColor: 'var(--color-bg-card)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--color-brand-600)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--status-available-text)', fontWeight: 700, fontSize: '0.8rem' }}>
+                            <CheckCircle2 size={15} />
+                            <span>NEW TEMPORARY PASSWORD GENERATED</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            id="btn-copy-reset-password"
+                            style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                            onClick={() => handleCopyCredentials(resetPasswordResult.tempPassword, 'reset')}
+                          >
+                            {copiedState === 'reset' ? (
+                              <>
+                                <Check size={12} color="var(--status-available-text)" />
+                                <span style={{ color: 'var(--status-available-text)' }}>Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={12} />
+                                <span>Copy Password</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <code style={{
+                            padding: '4px 10px',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: 'var(--color-bg-subtle)',
+                            border: '1px solid var(--border-subtle)',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 700,
+                            fontSize: '0.98rem',
+                            color: 'var(--color-brand-600)',
+                            letterSpacing: '0.5px'
+                          }}>
+                            {resetPasswordResult.tempPassword}
+                          </code>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                            Share with employee. This password will not be shown again.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                      This staff member does not have an active login account.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      id="btn-create-login"
+                      disabled={accountActionLoading}
+                      onClick={handleCreateLogin}
+                    >
+                      <Plus size={13} />
+                      <span>Create Login Account</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Assigned Custody Equipment */}
             <div style={{ marginTop: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '4px' }}>
@@ -785,7 +1088,155 @@ export default function EmployeeDirectory() {
               />
             </div>
           </div>
+
+          {modalMode === 'CREATE' && (
+            <div style={{
+              padding: '12px 14px',
+              backgroundColor: 'var(--color-bg-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.createLoginAccount}
+                  onChange={(e) => setFormData({ ...formData, createLoginAccount: e.target.checked })}
+                  id="chk-create-login-account"
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-brand-600)' }}
+                />
+                <span>Create Login Account Automatically</span>
+              </label>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: '24px' }}>
+                System will generate a User account with Username matching Employee ID and a strong temporary password.
+              </div>
+            </div>
+          )}
         </form>
+      </Modal>
+
+      {/* Confirmation Modal: Employee Account Created */}
+      <Modal
+        isOpen={Boolean(createdAccountModalData)}
+        onClose={() => setCreatedAccountModalData(null)}
+        title="EMPLOYEE ACCOUNT CREATED"
+        subtitle="Automatic User Login Account Generated for Airports Authority of India"
+        size="md"
+        id="employee-created-modal"
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)' }}>
+              Password will not be displayed again once closed.
+            </span>
+            <button
+              type="button"
+              className="btn btn-primary"
+              id="btn-close-created-modal"
+              onClick={() => setCreatedAccountModalData(null)}
+            >
+              Done
+            </button>
+          </div>
+        }
+      >
+        {createdAccountModalData && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: 'var(--status-available-bg)',
+              borderColor: 'var(--status-available-border)',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              color: 'var(--status-available-text)'
+            }}>
+              <CheckCircle2 size={20} style={{ flexShrink: 0 }} />
+              <div style={{ fontSize: '0.84rem', fontWeight: 600 }}>
+                Employee master record and active login account created successfully.
+              </div>
+            </div>
+
+            <div className="card" style={{
+              padding: '16px 20px',
+              backgroundColor: 'var(--color-bg-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '8px', fontSize: '0.86rem', alignItems: 'center' }}>
+                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Employee:</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-text-main)' }}>{createdAccountModalData.name}</span>
+
+                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Employee ID:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-brand-600)' }}>
+                  {createdAccountModalData.employeeId}
+                </span>
+
+                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Username:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-brand-600)' }}>
+                  {createdAccountModalData.username}
+                </span>
+
+                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Temporary Password:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <code style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--color-bg-card)',
+                    border: '1px solid var(--border-subtle)',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    color: 'var(--color-brand-600)',
+                    letterSpacing: '0.5px'
+                  }}>
+                    {createdAccountModalData.tempPassword}
+                  </code>
+                </div>
+              </div>
+
+              <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  id="btn-copy-credentials"
+                  onClick={() => handleCopyCredentials(
+`Airports Authority of India - Asset Management System
+Employee: ${createdAccountModalData.name}
+Employee ID: ${createdAccountModalData.employeeId}
+Username: ${createdAccountModalData.username}
+Temporary Password: ${createdAccountModalData.tempPassword}
+Login URL: ${window.location.origin}/login`,
+                    'create'
+                  )}
+                >
+                  {copiedState === 'create' ? (
+                    <>
+                      <Check size={14} color="var(--status-available-text)" />
+                      <span style={{ color: 'var(--status-available-text)' }}>Credentials Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copy Credentials</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-text-muted)', lineHeight: 1.4 }}>
+              Provide these credentials to the employee. They can sign in at <strong>/login</strong> using either their Employee ID or Username.
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   );

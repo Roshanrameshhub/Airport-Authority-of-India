@@ -5,6 +5,7 @@ import { assignmentRepository } from '../repositories/assignmentRepository.js';
 import { complaintRepository } from '../repositories/complaintRepository.js';
 import { verificationRepository } from '../repositories/verificationRepository.js';
 import { amcRepository } from '../repositories/amcRepository.js';
+import { excelFieldService } from './excelFieldService.js';
 
 // Shared enterprise document styling tokens
 const docColors = {
@@ -117,6 +118,15 @@ export const exportService = {
       limit: 10000
     });
 
+    // Query active export-enabled custom fields
+    let customExportFields = [];
+    try {
+      const allExportFields = await excelFieldService.getExportFields();
+      customExportFields = allExportFields.filter(f => !f.isLocked);
+    } catch (e) {
+      customExportFields = [];
+    }
+
     const headers = [
       'Asset ID',
       'Asset Name',
@@ -136,12 +146,22 @@ export const exportService = {
       'Physical Condition',
       'Operating System',
       'OS Version',
-      'Remarks'
+      'Remarks',
+      ...customExportFields.map(f => f.displayName)
     ];
 
     const dataRows = items.map(asset => {
       const installStr = asset.installDate ? new Date(asset.installDate).toISOString().split('T')[0] : '';
       const warrantyStr = asset.warrantyEndDate ? new Date(asset.warrantyEndDate).toISOString().split('T')[0] : '';
+
+      const customValues = customExportFields.map(f => {
+        const val = asset.customFields?.[f.fieldName];
+        if (val === undefined || val === null) return '';
+        if (f.dataType === 'DATE' && val) {
+          try { return new Date(val).toISOString().split('T')[0]; } catch { return String(val); }
+        }
+        return String(val);
+      });
 
       return [
         asset.assetId,
@@ -162,19 +182,26 @@ export const exportService = {
         asset.condition,
         asset.operatingSystem || 'N/A',
         asset.osVersion || '',
-        asset.remarks || ''
+        asset.remarks || '',
+        ...customValues
       ];
     });
 
     const wsData = [headers, ...dataRows];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-    ws['!cols'] = [
+    const baseCols = [
       { wch: 22 }, { wch: 32 }, { wch: 18 }, { wch: 16 }, { wch: 22 },
       { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 34 }, { wch: 25 },
       { wch: 15 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
       { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 40 }
     ];
+
+    const customCols = customExportFields.map(f => ({
+      wch: Math.max(f.displayName.length + 6, 18)
+    }));
+
+    ws['!cols'] = [...baseCols, ...customCols];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'AAI_Asset_Inventory');

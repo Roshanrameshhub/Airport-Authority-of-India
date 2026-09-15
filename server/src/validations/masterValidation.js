@@ -17,7 +17,8 @@ export const createEmployeeSchema = z.object({
     required_error: 'Floor / Location is required'
   }).min(1, 'Floor must be specified').trim(),
   email: z.string().email('Invalid email address format').optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal(''))
+  phone: z.string().optional().or(z.literal('')),
+  createLoginAccount: z.boolean().optional().default(true)
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

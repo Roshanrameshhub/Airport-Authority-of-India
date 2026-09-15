@@ -160,6 +160,20 @@ export const employeeRepository = {
     return memoryEmployees.get(cleanId) || null;
   },
 
+  findByName: async (name) => {
+    if (!name) return null;
+    const cleanName = name.trim();
+    if (mongoose.connection.readyState === 1) {
+      return Employee.findOne({ name: new RegExp(`^${cleanName}$`, 'i') });
+    }
+    for (const emp of memoryEmployees.values()) {
+      if (emp.name.toLowerCase() === cleanName.toLowerCase()) {
+        return emp;
+      }
+    }
+    return null;
+  },
+
   create: async (data) => {
     const cleanId = data.employeeId.trim().toUpperCase();
 

@@ -19,6 +19,7 @@ import auditRoutes from './routes/auditRoutes.js';
 import tagRoutes from './routes/tagRoutes.js';
 import amcRoutes from './routes/amcRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
+import excelFieldRoutes from './routes/excelFieldRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -80,9 +81,11 @@ app.use('/api/v1/export', exportRoutes);
 app.use('/api/v1/complaints', complaintRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/audit-logs', auditRoutes);
+app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/tags', tagRoutes);
 app.use('/api/v1/amc', amcRoutes);
 app.use('/api/v1/verification', verificationRoutes);
+app.use('/api/v1/excel-fields', excelFieldRoutes);
 
 // Fallback route handlers
 app.use(notFound);

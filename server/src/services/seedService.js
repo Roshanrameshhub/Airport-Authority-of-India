@@ -6,6 +6,7 @@ import AssetAssignment from '../models/AssetAssignment.js';
 import Department from '../models/Department.js';
 import Category from '../models/Category.js';
 import Complaint from '../models/Complaint.js';
+import { seedCoreFields } from './excelFieldService.js';
 import { logger } from '../utils/logger.js';
 
 // ─── DEMO CREDENTIALS ────────────────────────────────────────────────────────
@@ -22,6 +23,9 @@ import { logger } from '../utils/logger.js';
 export const seedDemoAccounts = async () => {
   try {
     logger.info('[Demo Seeder] Starting AAI-AMS development/demo account seeding...');
+
+    // ─── 0. Seed Core 13 Locked Excel Fields ─────────────────────────────────
+    await seedCoreFields();
 
     // ─── 1. Core Master Departments ──────────────────────────────────────────
     const departments = [
