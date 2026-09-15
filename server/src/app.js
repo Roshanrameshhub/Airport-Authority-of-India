@@ -27,13 +27,33 @@ const app = express();
 
 // Security Middlewares
 app.use(helmet());
+
+const allowedOrigins = [
+  'https://airport-authority-of-india-tau.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+if (process.env.CLIENT_URL) {
+  const cUrl = process.env.CLIENT_URL.replace(/\/+$/, '');
+  if (!allowedOrigins.includes(cUrl)) allowedOrigins.push(cUrl);
+}
+if (process.env.FRONTEND_URL) {
+  const fUrl = process.env.FRONTEND_URL.replace(/\/+$/, '');
+  if (!allowedOrigins.includes(fUrl)) allowedOrigins.push(fUrl);
+}
+
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5173'
-  ],
-  credentials: true
+  origin: (origin, callback) => {
+    // Allow server-to-server, curl, or mobile requests with no origin
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || /^https:\/\/airport-authority-of-india.*\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 // Rate Limiting
@@ -47,6 +67,18 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
+
+// Root & Favicon Handlers (Prevents Render 404 logs)
+app.get('/', (req, res) => {
+  return sendSuccess(res, {
+    service: 'Airports Authority of India (AAI) - Asset Management System API',
+    status: 'ONLINE',
+    environment: process.env.NODE_ENV || 'development',
+    healthCheck: `${req.protocol}://${req.get('host')}/api/v1/health`
+  }, 'AAI AMS Backend API is active');
+});
+
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health & System Diagnostic Check API
 app.get('/api/v1/health', (req, res) => {

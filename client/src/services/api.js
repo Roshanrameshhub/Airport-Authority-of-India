@@ -2,7 +2,45 @@
  * Standardized API client for AAI Asset Management System
  */
 
-const API_BASE_URL = '/api/v1';
+// Base API URL configuration
+// When deployed on Vercel, VITE_API_URL points to Render backend:
+// e.g. https://airport-authority-of-india.onrender.com
+const RAW_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+export const API_HOST = RAW_BASE_URL;
+export const API_BASE_URL = `${RAW_BASE_URL}/api/v1`;
+
+/**
+ * Normalizes any relative or absolute endpoint into a fully qualified API URL.
+ * Prevents '/api/v1/api/v1' duplication.
+ */
+export const buildApiUrl = (endpoint) => {
+  if (!endpoint) return API_BASE_URL;
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith('/api/v1')) {
+    return `${RAW_BASE_URL}${cleanEndpoint}`;
+  }
+  return `${API_BASE_URL}${cleanEndpoint}`;
+};
+
+// Intercept window.fetch globally so all relative /api/v1 requests throughout all pages
+// seamlessly route to VITE_API_URL in production without breaking Vite proxy in local dev.
+if (typeof window !== 'undefined' && window.fetch && RAW_BASE_URL) {
+  if (!window._aaiFetchPatched) {
+    const nativeFetch = window.fetch;
+    window.fetch = function (input, init) {
+      if (typeof input === 'string' && input.startsWith('/api/')) {
+        input = `${RAW_BASE_URL}${input}`;
+      } else if (input instanceof URL && input.pathname.startsWith('/api/')) {
+        input = new URL(`${RAW_BASE_URL}${input.pathname}${input.search}`);
+      }
+      return nativeFetch.call(this, input, init);
+    };
+    window._aaiFetchPatched = true;
+  }
+}
 
 export const apiClient = async (endpoint, options = {}) => {
   const token = localStorage.getItem('aai_ams_token');
@@ -18,7 +56,8 @@ export const apiClient = async (endpoint, options = {}) => {
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const targetUrl = buildApiUrl(endpoint);
+    const response = await fetch(targetUrl, config);
     const data = await response.json();
 
     if (!response.ok) {
@@ -56,7 +95,8 @@ export const downloadAuthenticatedPdf = async (url, fallbackFilename = 'AAI_Docu
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { headers });
+  const targetUrl = buildApiUrl(url);
+  const response = await fetch(targetUrl, { headers });
 
   if (!response.ok) {
     let errorMessage = 'Failed to download official PDF document';
@@ -104,7 +144,8 @@ export const openAuthenticatedPdf = async (url) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { headers });
+  const targetUrl = buildApiUrl(url);
+  const response = await fetch(targetUrl, { headers });
 
   if (!response.ok) {
     let errorMessage = 'Failed to preview PDF document';

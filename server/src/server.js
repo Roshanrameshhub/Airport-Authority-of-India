@@ -31,9 +31,10 @@ const startServer = async () => {
     }
 
     // 3. Start HTTP Listener only after database connects successfully
-    const server = app.listen(PORT, () => {
+    const HOST = '0.0.0.0';
+    const server = app.listen(PORT, HOST, () => {
       logger.info(`AAI Asset Management API running in [${process.env.NODE_ENV || 'development'}] mode on port ${PORT}`);
-      logger.info(`Health check available at http://localhost:${PORT}/api/v1/health`);
+      logger.info(`Health check available at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api/v1/health`);
     });
 
     // Graceful Shutdown

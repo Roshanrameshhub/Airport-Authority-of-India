@@ -214,10 +214,9 @@ export const seedDemoAccounts = async () => {
 
     logger.info('================================================================================');
     logger.info('✔ AAI-AMS DEMO SEED COMPLETE');
-    logger.info('  ADMIN    : Username=Admin      | Password=Admin@123    | Role=ADMIN');
-    logger.info('  EMPLOYEE : Username=Employee01 | Password=Employee@123 | Role=EMPLOYEE | EmpID=AAI-EMP-01');
+    logger.info('  ADMIN account verified/seeded (Role: ADMIN)');
+    logger.info('  EMPLOYEE account verified/seeded (Role: EMPLOYEE, EmpID: AAI-EMP-01)');
     logger.info('  Usernames stored lowercase in DB: admin / employee01');
-    logger.info('  Login with any casing works (Admin, ADMIN, admin all match).');
     logger.info('================================================================================');
 
     return { admin: seededAdmin, employee: seededEmployee01User, asset: seededAsset };

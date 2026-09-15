@@ -103,7 +103,7 @@ const seedMemoryUsers = () => {
     memoryUsers.set('employee01', employee01User);
     memoryUsers.set('employee', legacyEmployeeUser);
     memoryUsers.set('roshan.r', legacyRoshanUser);
-    logger.info('[Memory Registry] Seeded: admin (Admin@123 / ADMIN), employee01 (Employee@123 / EMPLOYEE), plus legacy test accounts');
+    logger.info('[Memory Registry] Seeded: admin (ADMIN), employee01 (EMPLOYEE), plus legacy test accounts');
   }
 };
 
