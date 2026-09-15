@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   Boxes,
+  Layers,
   ArrowLeftRight,
   Users,
   AlertCircle,
@@ -22,6 +23,7 @@ export default function Sidebar({ isCollapsed, onToggle }) {
   const adminNavItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, id: 'nav-dashboard' },
     { path: '/assets', label: 'Assets', icon: Boxes, id: 'nav-assets' },
+    { path: '/inventory', label: 'Inventory', icon: Layers, id: 'nav-inventory' },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight, id: 'nav-transfers' },
     { path: '/employees', label: 'Employees', icon: Users, id: 'nav-employees' },
     { path: '/complaints', label: 'Complaints', icon: AlertCircle, id: 'nav-complaints' },

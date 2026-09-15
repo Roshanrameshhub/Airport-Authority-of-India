@@ -6,17 +6,21 @@ export const createAssetSchema = z.object({
     required_error: 'Asset Name is required'
   }).min(2, 'Asset Name must be at least 2 characters').trim(),
   assetType: z.enum([
-    'DESKTOP',
-    'LAPTOP',
-    'PRINTER',
-    'SCANNER',
-    'UPS',
-    'MONITOR',
-    'SERVER',
-    'NETWORK',
-    'PROJECTOR',
-    'STORAGE',
-    'PERIPHERAL',
+    // IT Equipment
+    'DESKTOP', 'LAPTOP', 'WORKSTATION', 'SERVER', 'MONITOR', 'STORAGE', 'THIN_CLIENT',
+    // Networking
+    'NETWORK', 'SWITCH', 'ROUTER', 'FIREWALL', 'ACCESS_POINT', 'MODEM',
+    // Power
+    'UPS', 'BATTERY_BANK', 'STABILIZER', 'PDU',
+    // Printing
+    'PRINTER', 'SCANNER', 'MULTIFUNCTION_PRINTER', 'PLOTTER',
+    // Communication
+    'INTERCOM', 'TELEPHONE', 'COMMUNICATION_DEVICE', 'RADIO',
+    // Surveillance
+    'CCTV', 'DVR_NVR', 'ACCESS_CONTROL', 'BIOMETRIC',
+    // Office Equipment
+    'PROJECTOR', 'PERIPHERAL', 'SHREDDER', 'LAMINATOR', 'BINDING',
+    // Catch-all
     'OTHER'
   ]).optional().default('OTHER'),
   category: z.string({

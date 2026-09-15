@@ -16,6 +16,9 @@ const seedEmployees = () => {
         floor: '2nd Floor, Technical Block',
         email: 'roshan.r@aai.aero',
         phone: '+91 98401 23456',
+        employeeType: 'AAI',
+        employmentCategory: 'Regular',
+        contractorName: '',
         isActive: true,
         assignedAssetsCount: 3
       },
@@ -28,6 +31,9 @@ const seedEmployees = () => {
         floor: '2nd Floor, Admin Block',
         email: 'admin@aai.aero',
         phone: '+91 98401 11111',
+        employeeType: 'AAI',
+        employmentCategory: 'Regular',
+        contractorName: '',
         isActive: true,
         assignedAssetsCount: 2
       },
@@ -40,6 +46,9 @@ const seedEmployees = () => {
         floor: '3rd Floor, ATC Tower',
         email: 'amit.sharma@aai.aero',
         phone: '+91 98401 56789',
+        employeeType: 'AAI',
+        employmentCategory: 'Regular',
+        contractorName: '',
         isActive: true,
         assignedAssetsCount: 1
       },
@@ -52,6 +61,9 @@ const seedEmployees = () => {
         floor: 'Ground Floor, Admin Wing',
         email: 'priya.nair@aai.aero',
         phone: '+91 98401 88776',
+        employeeType: 'AAI',
+        employmentCategory: 'Regular',
+        contractorName: '',
         isActive: true,
         assignedAssetsCount: 2
       },
@@ -64,8 +76,26 @@ const seedEmployees = () => {
         floor: '1st Floor, Operational Wing',
         email: 'suresh.k@aai.aero',
         phone: '+91 98401 44332',
+        employeeType: 'AAI',
+        employmentCategory: 'Regular',
+        contractorName: '',
         isActive: true,
         assignedAssetsCount: 1
+      },
+      {
+        _id: '66d300000000000000000006',
+        employeeId: 'AAI-CNT-8801',
+        name: 'Rajesh Verma',
+        designation: 'Hardware Support Technician',
+        department: 'Information Technology',
+        floor: '1st Floor, IT Operations',
+        email: 'rajesh.contractor@aai.aero',
+        phone: '+91 98401 99887',
+        employeeType: 'Contract',
+        employmentCategory: 'Outsourced',
+        contractorName: 'Skyline IT Services Pvt Ltd',
+        isActive: true,
+        assignedAssetsCount: 0
       }
     ];
 
@@ -82,7 +112,7 @@ const seedEmployees = () => {
 seedEmployees();
 
 export const employeeRepository = {
-  find: async ({ search = '', department = '', floor = '', page = 1, limit = 10, isActive = true }) => {
+  find: async ({ search = '', department = '', floor = '', employeeType = '', employmentCategory = '', page = 1, limit = 10, isActive = true }) => {
     const skip = (Number(page) - 1) * Number(limit);
 
     if (mongoose.connection.readyState === 1) {
@@ -94,12 +124,20 @@ export const employeeRepository = {
       if (floor) {
         query.floor = floor;
       }
+      if (employeeType) {
+        query.employeeType = employeeType;
+      }
+      if (employmentCategory) {
+        query.employmentCategory = employmentCategory;
+      }
       if (search) {
         const regex = new RegExp(escapeRegex(search), 'i');
         query.$or = [
           { name: regex },
           { employeeId: regex },
-          { designation: regex }
+          { designation: regex },
+          { contractorName: regex },
+          { employmentCategory: regex }
         ];
       }
 
@@ -121,12 +159,20 @@ export const employeeRepository = {
     if (floor) {
       list = list.filter(e => e.floor === floor);
     }
+    if (employeeType) {
+      list = list.filter(e => (e.employeeType || 'AAI') === employeeType);
+    }
+    if (employmentCategory) {
+      list = list.filter(e => (e.employmentCategory || 'Regular') === employmentCategory);
+    }
     if (search) {
       const s = search.toLowerCase();
       list = list.filter(e =>
-        e.name.toLowerCase().includes(s) ||
-        e.employeeId.toLowerCase().includes(s) ||
-        e.designation.toLowerCase().includes(s)
+        (e.name || '').toLowerCase().includes(s) ||
+        (e.employeeId || '').toLowerCase().includes(s) ||
+        (e.designation || '').toLowerCase().includes(s) ||
+        (e.contractorName || '').toLowerCase().includes(s) ||
+        (e.employmentCategory || '').toLowerCase().includes(s)
       );
     }
 

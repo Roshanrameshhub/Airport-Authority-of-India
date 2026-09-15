@@ -316,8 +316,10 @@ export default function AssetTransfers() {
     }
   };
 
-  // Currently selected transfer asset
+  // Currently selected transfer asset and employees
   const selectedTransferAsset = assets.find(a => a.assetId === transferForm.assetId);
+  const selectedAssignee = employees.find(e => e.employeeId === assignForm.employeeId);
+  const selectedTargetEmployee = employees.find(e => e.employeeId === transferForm.toEmployeeId);
 
   // Assignments List (Server-Filtered)
   const filteredAssignments = assignments;
@@ -545,9 +547,22 @@ export default function AssetTransfers() {
                 </td>
 
                 <td>
-                  <div style={{ fontWeight: 600 }}>{item.employeeName}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 600 }}>{item.employeeName}</span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: (item.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                      color: (item.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                    }}>
+                      {item.employeeType || 'AAI'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                     <code>{item.employeeId}</code> {item.designation ? `• ${item.designation}` : ''}
+                    {item.contractorName ? ` • Agency: ${item.contractorName}` : ''}
                   </div>
                 </td>
 
@@ -690,11 +705,43 @@ export default function AssetTransfers() {
               <option value="">-- Select Employee --</option>
               {activeEmployees.map(emp => (
                 <option key={emp.employeeId} value={emp.employeeId}>
-                  {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department}
+                  {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department} [{emp.employeeType || 'AAI'}]
                 </option>
               ))}
             </select>
           </div>
+
+          {selectedAssignee && (
+            <div style={{
+              background: 'var(--color-bg-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              fontSize: '0.8125rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Selected Custodian:</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  backgroundColor: (selectedAssignee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (selectedAssignee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                }}>
+                  {selectedAssignee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
+                  {selectedAssignee.employmentCategory ? ` (${selectedAssignee.employmentCategory})` : ''}
+                </span>
+              </div>
+              <div><strong>{selectedAssignee.name}</strong> ({selectedAssignee.employeeId}) • {selectedAssignee.designation || 'N/A'}</div>
+              <div><strong>Department:</strong> {selectedAssignee.department} • <strong>Location:</strong> {selectedAssignee.floor || 'N/A'}</div>
+              {selectedAssignee.contractorName && (
+                <div style={{ color: '#6D28D9', marginTop: '2px' }}>
+                  <strong>Contractor / Vendor:</strong> {selectedAssignee.contractorName}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Physical Condition at Handover</label>
@@ -765,6 +812,24 @@ export default function AssetTransfers() {
         }
       >
         <form onSubmit={handleTransferSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {/* Custody-Only Transfer Guarantee Banner */}
+          <div style={{
+            background: '#F0FDF4',
+            border: '1px solid #86EFAC',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            fontSize: '0.8125rem',
+            color: '#166534',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <CheckCircle2 size={16} color="#16A34A" style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Custody-Only Transfer Guarantee:</strong> Handover updates only the asset's custody ledger. Employee Master records remain unaltered.
+            </div>
+          </div>
+
           <div className="form-group">
             <label className="form-label">Select Currently Assigned Asset *</label>
             <select
@@ -790,12 +855,27 @@ export default function AssetTransfers() {
               padding: '10px 14px',
               fontSize: '0.8125rem'
             }}>
-              <div style={{ fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                Current Custodian Information:
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Current Custodian Information:</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  backgroundColor: (selectedTransferAsset.currentEmployeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (selectedTransferAsset.currentEmployeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                }}>
+                  {selectedTransferAsset.currentEmployeeType || 'AAI Staff'}
+                </span>
               </div>
               <div><strong>Name:</strong> {selectedTransferAsset.currentEmployeeName} ({selectedTransferAsset.currentEmployeeId})</div>
               <div><strong>Designation:</strong> {selectedTransferAsset.currentDesignation || 'N/A'}</div>
               <div><strong>Department:</strong> {selectedTransferAsset.department} • <strong>Floor:</strong> {selectedTransferAsset.floor}</div>
+              {selectedTransferAsset.currentContractorName && (
+                <div style={{ color: '#6D28D9', marginTop: '2px' }}>
+                  <strong>Contractor / Agency:</strong> {selectedTransferAsset.currentContractorName}
+                </div>
+              )}
             </div>
           )}
 
@@ -812,11 +892,43 @@ export default function AssetTransfers() {
                 .filter(emp => !selectedTransferAsset || emp.employeeId !== selectedTransferAsset.currentEmployeeId)
                 .map(emp => (
                   <option key={emp.employeeId} value={emp.employeeId}>
-                    {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department}
+                    {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department} [{emp.employeeType || 'AAI'}]
                   </option>
                 ))}
             </select>
           </div>
+
+          {selectedTargetEmployee && (
+            <div style={{
+              background: 'var(--color-bg-subtle)',
+              border: '1px solid #93C5FD',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              fontSize: '0.8125rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 600, color: '#1E40AF' }}>Target Custodian (New):</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  backgroundColor: (selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                }}>
+                  {selectedTargetEmployee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
+                  {selectedTargetEmployee.employmentCategory ? ` (${selectedTargetEmployee.employmentCategory})` : ''}
+                </span>
+              </div>
+              <div><strong>Name:</strong> {selectedTargetEmployee.name} ({selectedTargetEmployee.employeeId}) • {selectedTargetEmployee.designation || 'N/A'}</div>
+              <div><strong>Department:</strong> {selectedTargetEmployee.department} • <strong>Location:</strong> {selectedTargetEmployee.floor || 'N/A'}</div>
+              {selectedTargetEmployee.contractorName && (
+                <div style={{ color: '#6D28D9', marginTop: '2px' }}>
+                  <strong>Contractor / Agency:</strong> {selectedTargetEmployee.contractorName}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
             <div className="form-group">
@@ -1143,8 +1255,23 @@ export default function AssetTransfers() {
               </div>
               <div className="spec-grid-item">
                 <span className="spec-grid-label">Custodian Staff</span>
-                <span className="spec-grid-value">{selectedRecord.employeeName}</span>
-                <span className="spec-grid-sub">{selectedRecord.employeeId} {selectedRecord.designation ? `• ${selectedRecord.designation}` : ''}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="spec-grid-value">{selectedRecord.employeeName}</span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: (selectedRecord.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                    color: (selectedRecord.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                  }}>
+                    {selectedRecord.employeeType || 'AAI'}
+                  </span>
+                </div>
+                <span className="spec-grid-sub">
+                  {selectedRecord.employeeId} {selectedRecord.designation ? `• ${selectedRecord.designation}` : ''}
+                  {selectedRecord.contractorName ? ` • Agency: ${selectedRecord.contractorName}` : ''}
+                </span>
               </div>
               <div className="spec-grid-item">
                 <span className="spec-grid-label">Department & Location</span>

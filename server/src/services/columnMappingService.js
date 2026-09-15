@@ -411,6 +411,78 @@ export const CANONICAL_FIELDS = {
       'fixed asset id', 'barcode', 'tag id', 'aai asset id'
     ],
     ambiguousTerms: ['id', 'tag']
+  },
+  employeeType: {
+    key: 'employeeType',
+    label: 'Employee Type',
+    description: 'AAI permanent staff or Contract / Outsourced personnel',
+    required: false,
+    aliases: ['employee type', 'emp type', 'staff type', 'employment type', 'type of employee', 'emp. type'],
+    ambiguousTerms: []
+  },
+  employmentCategory: {
+    key: 'employmentCategory',
+    label: 'Employment Category',
+    description: 'Employment category (Regular, Contractual, Outsourced, Deputation, Casual, Intern)',
+    required: false,
+    aliases: ['employment category', 'emp category', 'staff category', 'category of employment', 'employment class', 'emp. category'],
+    ambiguousTerms: []
+  },
+  contractorName: {
+    key: 'contractorName',
+    label: 'Contractor / Agency',
+    description: 'Outsourced staffing agency or contractor company name',
+    required: false,
+    aliases: ['contractor', 'contractor name', 'agency', 'contractor / agency', 'vendor name agency', 'contractor / vendor', 'staffing agency', 'outsourced vendor', 'contractor name'],
+    ambiguousTerms: []
+  },
+  status: {
+    key: 'status',
+    label: 'Asset Status',
+    description: 'Operational status (AVAILABLE, ASSIGNED, GODOWN, UNDER_MAINTENANCE, FAULTY, DAMAGED, RETIRED, etc.)',
+    required: false,
+    aliases: ['status', 'asset status', 'equipment status', 'current status', 'lifecycle status', 'hardware status'],
+    ambiguousTerms: []
+  },
+  condition: {
+    key: 'condition',
+    label: 'Physical Condition',
+    description: 'Hardware condition (EXCELLENT, GOOD, FAIR, POOR, UNUSABLE)',
+    required: false,
+    aliases: ['condition', 'physical condition', 'asset condition', 'hardware condition', 'working condition'],
+    ambiguousTerms: []
+  },
+  transferReason: {
+    key: 'transferReason',
+    label: 'Assignment Reason',
+    description: 'Assignment justification or handover purpose',
+    required: false,
+    aliases: ['assignment reason', 'transfer reason', 'allocation reason', 'reason', 'purpose', 'justification'],
+    ambiguousTerms: []
+  },
+  warrantyStartDate: {
+    key: 'warrantyStartDate',
+    label: 'Warranty Start',
+    description: 'OEM or vendor warranty coverage start date',
+    required: false,
+    aliases: ['warranty start', 'warranty start date', 'warranty begins', 'warranty from', 'warranty commencement'],
+    ambiguousTerms: []
+  },
+  warrantyStatus: {
+    key: 'warrantyStatus',
+    label: 'Warranty Status',
+    description: 'Current warranty state (ACTIVE, EXPIRING, EXPIRED, AMC)',
+    required: false,
+    aliases: ['warranty status', 'warranty state', 'warranty coverage'],
+    ambiguousTerms: []
+  },
+  amcEndDate: {
+    key: 'amcEndDate',
+    label: 'AMC End Date',
+    description: 'Maintenance agreement contract termination date',
+    required: false,
+    aliases: ['amc end', 'amc end date', 'amc expiry', 'amc valid till', 'amc expiration', 'amc termination date'],
+    ambiguousTerms: []
   }
 };
 

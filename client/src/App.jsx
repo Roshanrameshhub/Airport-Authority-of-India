@@ -14,6 +14,7 @@ import AssetTransfers from './pages/AssetTransfers';
 import BulkImportExport from './pages/BulkImportExport';
 import ComplaintDesk from './pages/ComplaintDesk';
 import AuditLogs from './pages/AuditLogs';
+import EnterpriseInventory from './pages/EnterpriseInventory';
 
 function RootDashboard() {
   const { user } = useAuth();
@@ -124,6 +125,17 @@ export default function App() {
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <AppLayout>
                   <AuditLogs />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AppLayout>
+                  <EnterpriseInventory />
                 </AppLayout>
               </ProtectedRoute>
             }

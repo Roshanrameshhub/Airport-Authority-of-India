@@ -7,6 +7,18 @@ const memoryCategories = new Map();
 const seedCategories = () => {
   if (memoryCategories.size === 0) {
     const list = [
+      // Standardized Broad Categories (AAI Modernized)
+      { _id: '66d200000000000000000010', name: 'IT Equipment', code: 'IT', requiresOS: true, description: 'Desktops, Laptops, Servers, Monitors, Workstations' },
+      { _id: '66d200000000000000000011', name: 'Networking', code: 'NET', requiresOS: false, description: 'Routers, Switches, Firewalls, Access Points' },
+      { _id: '66d200000000000000000012', name: 'Power', code: 'PWR', requiresOS: false, description: 'UPS systems, Battery banks, Stabilizers' },
+      { _id: '66d200000000000000000013', name: 'Printing', code: 'PRT', requiresOS: false, description: 'Printers, Scanners, Multifunction copiers' },
+      { _id: '66d200000000000000000014', name: 'Communication', code: 'COM', requiresOS: false, description: 'Intercoms, Telephones, EPABX, Radios' },
+      { _id: '66d200000000000000000015', name: 'Surveillance', code: 'SUR', requiresOS: false, description: 'CCTV cameras, NVR/DVR, Access control' },
+      { _id: '66d200000000000000000016', name: 'Office Equipment', code: 'OFF', requiresOS: false, description: 'Projectors, Shredders, Laminators' },
+      { _id: '66d200000000000000000017', name: 'Furniture', code: 'FUR', requiresOS: false, description: 'Fixtures, Workstations, Ergonomic furniture' },
+      { _id: '66d200000000000000000018', name: 'Other', code: 'OTH', requiresOS: false, description: 'General operational equipment' },
+
+      // Legacy Categories (Preserved for 100% Backward Compatibility)
       { _id: '66d200000000000000000001', name: 'Desktop PC', code: 'PC', requiresOS: true, description: 'Workstations and desktop computer units' },
       { _id: '66d200000000000000000002', name: 'Laptop', code: 'LAPTOP', requiresOS: true, description: 'Laptops and portable computing devices' },
       { _id: '66d200000000000000000003', name: 'Printer', code: 'PRINTER', requiresOS: false, description: 'Multifunction laser, inkjet, and network printers' },

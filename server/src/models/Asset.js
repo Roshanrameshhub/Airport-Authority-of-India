@@ -76,17 +76,21 @@ const assetSchema = new mongoose.Schema({
   assetType: {
     type: String,
     enum: [
-      'DESKTOP',
-      'LAPTOP',
-      'PRINTER',
-      'SCANNER',
-      'UPS',
-      'MONITOR',
-      'SERVER',
-      'NETWORK',
-      'PROJECTOR',
-      'STORAGE',
-      'PERIPHERAL',
+      // IT Equipment
+      'DESKTOP', 'LAPTOP', 'WORKSTATION', 'SERVER', 'MONITOR', 'STORAGE', 'THIN_CLIENT',
+      // Networking
+      'NETWORK', 'SWITCH', 'ROUTER', 'FIREWALL', 'ACCESS_POINT', 'MODEM',
+      // Power
+      'UPS', 'BATTERY_BANK', 'STABILIZER', 'PDU',
+      // Printing
+      'PRINTER', 'SCANNER', 'MULTIFUNCTION_PRINTER', 'PLOTTER',
+      // Communication
+      'INTERCOM', 'TELEPHONE', 'COMMUNICATION_DEVICE', 'RADIO',
+      // Surveillance
+      'CCTV', 'DVR_NVR', 'ACCESS_CONTROL', 'BIOMETRIC',
+      // Office Equipment
+      'PROJECTOR', 'PERIPHERAL', 'SHREDDER', 'LAMINATOR', 'BINDING',
+      // Catch-all
       'OTHER'
     ],
     default: 'OTHER',
@@ -188,6 +192,23 @@ const assetSchema = new mongoose.Schema({
   currentAssignmentDate: {
     type: Date,
     default: null
+  },
+  // Custodian employment classification snapshots (denormalized for fast inventory queries)
+  currentEmployeeType: {
+    type: String,
+    enum: ['AAI', 'Contract'],
+    default: 'AAI',
+    trim: true
+  },
+  currentEmploymentCategory: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  currentContractorName: {
+    type: String,
+    trim: true,
+    default: ''
   },
 
   // 4. Procurement, Supply Order & Financial

@@ -47,6 +47,23 @@ const assetAssignmentSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  // Employee classification snapshot at time of custody event (immutable audit record)
+  employeeType: {
+    type: String,
+    enum: ['AAI', 'Contract'],
+    default: 'AAI',
+    trim: true
+  },
+  employmentCategory: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  contractorName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   assignedDate: {
     type: Date,
     required: [true, 'Assigned date is required'],

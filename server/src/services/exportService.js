@@ -128,31 +128,26 @@ export const exportService = {
     }
 
     const headers = [
-      'Asset ID',
-      'Asset Name',
-      'Category',
-      'Make / Company',
-      'Model',
-      'Serial Number',
-      'User Name (Custodian)',
-      'Designation',
-      'Department',
-      'Floor / Location',
-      'Employee ID',
-      'Install Date',
-      'Warranty End Date',
-      'Warranty Status',
-      'Lifecycle Status',
-      'Physical Condition',
-      'Operating System',
-      'OS Version',
-      'Remarks',
+      // === Asset Identity ===
+      'Asset ID', 'Old Asset ID', 'Asset Name', 'Category', 'Asset Type', 'Make / Company', 'Model', 'Serial Number',
+      // === Custodian / Employee ===
+      'Employee ID', 'User Name (Custodian)', 'Employee Type', 'Employment Category', 'Designation', 'Department', 'Floor / Location', 'Contractor / Vendor',
+      // === Technical Specifications ===
+      'Processor', 'RAM (GB)', 'Storage (GB)', 'Storage Type', 'Operating System', 'OS Version', 'IP Address', 'MAC Address', 'Hostname',
+      // === Location ===
+      'Building / Location', 'Room', 'Intercom',
+      // === Procurement ===
+      'Supplier', 'Supply Order / PO No', 'Purchase Cost (INR ₹)', 'Purchase Date', 'Install Date',
+      // === Warranty & AMC ===
+      'Warranty Start Date', 'Warranty End Date', 'Warranty Status', 'AMC Applicable', 'AMC Contract ID', 'AMC End Date',
+      // === Lifecycle ===
+      'Lifecycle Status', 'Physical Condition', 'Remarks', 'Assignment Date',
+      // === Custom Fields ===
       ...customExportFields.map(f => f.displayName)
     ];
 
     const dataRows = items.map(asset => {
-      const installStr = asset.installDate ? new Date(asset.installDate).toISOString().split('T')[0] : '';
-      const warrantyStr = asset.warrantyEndDate ? new Date(asset.warrantyEndDate).toISOString().split('T')[0] : '';
+      const fmt = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
 
       const customValues = customExportFields.map(f => {
         const val = asset.customFields?.[f.fieldName];
@@ -163,26 +158,60 @@ export const exportService = {
         return String(val);
       });
 
+      const cc = asset.computerConfig || {};
+
       return [
+        // Asset Identity
         asset.assetId,
+        asset.oldAssetId || '',
         asset.assetName,
         asset.category,
+        asset.assetType,
         asset.make,
         asset.model,
         asset.serialNumber,
+        // Custodian
+        asset.currentEmployeeId || '—',
         asset.currentEmployeeName || '—',
+        asset.currentEmployeeType || 'AAI',
+        asset.currentEmploymentCategory || '',
         asset.currentDesignation || '—',
         asset.department,
         asset.floor,
-        asset.currentEmployeeId || '—',
-        installStr,
-        warrantyStr,
-        asset.warrantyStatus || 'ACTIVE',
-        asset.status,
-        asset.condition,
+        asset.currentContractorName || '',
+        // Technical
+        cc.processor || '',
+        cc.ramSizeGb != null ? cc.ramSizeGb : '',
+        cc.storageCapacityGb != null ? cc.storageCapacityGb : '',
+        cc.storageType || '',
         asset.operatingSystem || 'N/A',
         asset.osVersion || '',
+        cc.ipAddress || asset.ipAddress || '',
+        cc.macAddress || asset.macAddress || '',
+        cc.hostname || '',
+        // Location
+        asset.location || 'AAI Operational Facility',
+        asset.room || '',
+        asset.intercom || '',
+        // Procurement
+        asset.supplier || '',
+        asset.supplyOrderNumber || '',
+        asset.purchaseCost != null ? asset.purchaseCost : '',
+        fmt(asset.purchaseDate),
+        fmt(asset.installDate),
+        // Warranty & AMC
+        fmt(asset.warrantyStartDate),
+        fmt(asset.warrantyEndDate),
+        asset.warrantyStatus || 'ACTIVE',
+        asset.amcApplicable ? 'Yes' : 'No',
+        asset.amcContractId || '',
+        fmt(asset.amcEndDate),
+        // Lifecycle
+        asset.status,
+        asset.condition,
         asset.remarks || '',
+        fmt(asset.currentAssignmentDate),
+        // Custom
         ...customValues
       ];
     });
@@ -191,10 +220,20 @@ export const exportService = {
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     const baseCols = [
-      { wch: 22 }, { wch: 32 }, { wch: 18 }, { wch: 16 }, { wch: 22 },
-      { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 34 }, { wch: 25 },
-      { wch: 15 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
-      { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 40 }
+      // Asset Identity (8)
+      { wch: 22 }, { wch: 16 }, { wch: 32 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 22 }, { wch: 22 },
+      // Custodian (8)
+      { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 20 }, { wch: 26 }, { wch: 34 }, { wch: 26 }, { wch: 24 },
+      // Technical (9)
+      { wch: 28 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+      // Location (3)
+      { wch: 28 }, { wch: 12 }, { wch: 12 },
+      // Procurement (5)
+      { wch: 24 }, { wch: 22 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
+      // Warranty & AMC (6)
+      { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 20 }, { wch: 14 },
+      // Lifecycle (4)
+      { wch: 18 }, { wch: 16 }, { wch: 40 }, { wch: 16 }
     ];
 
     const customCols = customExportFields.map(f => ({

@@ -18,11 +18,13 @@ const generateTempPassword = () => {
 
 export const getEmployees = async (req, res, next) => {
   try {
-    const { search = '', department = '', floor = '', page = 1, limit = 10 } = req.query;
+    const { search = '', department = '', floor = '', employeeType = '', employmentCategory = '', page = 1, limit = 10 } = req.query;
     const { items, total } = await employeeRepository.find({
       search,
       department,
       floor,
+      employeeType,
+      employmentCategory,
       page: Number(page),
       limit: Number(limit)
     });

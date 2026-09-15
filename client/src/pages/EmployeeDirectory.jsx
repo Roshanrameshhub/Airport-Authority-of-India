@@ -41,6 +41,7 @@ export default function EmployeeDirectory() {
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedFloor, setSelectedFloor] = useState('');
+  const [selectedEmployeeType, setSelectedEmployeeType] = useState('');
 
   // Detail Modal State
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -68,6 +69,9 @@ export default function EmployeeDirectory() {
     floor: '',
     email: '',
     phone: '',
+    employeeType: 'AAI',
+    employmentCategory: 'Regular',
+    contractorName: '',
     createLoginAccount: true
   });
   const [formError, setFormError] = useState('');
@@ -89,6 +93,7 @@ export default function EmployeeDirectory() {
       if (search) params.append('search', search);
       if (selectedDept) params.append('department', selectedDept);
       if (selectedFloor) params.append('floor', selectedFloor);
+      if (selectedEmployeeType) params.append('employeeType', selectedEmployeeType);
 
       const res = await fetch(`/api/v1/employees?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -126,7 +131,7 @@ export default function EmployeeDirectory() {
       fetchEmployees(1, false);
     }, 250);
     return () => clearTimeout(delayDebounce);
-  }, [search, selectedDept, selectedFloor, token]);
+  }, [search, selectedDept, selectedFloor, selectedEmployeeType, token]);
 
   const handleOpenDetailModal = async (emp) => {
     setSelectedEmployee(emp);
@@ -191,6 +196,9 @@ export default function EmployeeDirectory() {
       floor: '',
       email: '',
       phone: '',
+      employeeType: 'AAI',
+      employmentCategory: 'Regular',
+      contractorName: '',
       createLoginAccount: true
     });
     setFormError('');
@@ -208,6 +216,9 @@ export default function EmployeeDirectory() {
       floor: emp.floor,
       email: emp.email || '',
       phone: emp.phone || '',
+      employeeType: emp.employeeType || 'AAI',
+      employmentCategory: emp.employmentCategory || 'Regular',
+      contractorName: emp.contractorName || '',
       createLoginAccount: false
     });
     setFormError('');
@@ -429,12 +440,12 @@ export default function EmployeeDirectory() {
       <div className="filter-bar">
         <div style={{
           display: 'grid',
-          gridTemplateColumns: hasActiveFilters ? '2fr 1.2fr auto' : '2fr 1.2fr auto',
+          gridTemplateColumns: hasActiveFilters ? '1.8fr 1.2fr 1.2fr auto' : '1.8fr 1.2fr 1.2fr auto',
           gap: 'var(--space-2)',
           alignItems: 'center'
         }}>
           <SearchInput
-            placeholder="Search by Employee ID, Name, or Designation..."
+            placeholder="Search by Employee ID, Name, Designation, Contractor..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onClear={() => setSearch('')}
@@ -447,6 +458,17 @@ export default function EmployeeDirectory() {
             id="department-filter-select"
             placeholder="All Departments"
             options={Array.from(new Set(employees.map(e => e.department).filter(Boolean))).sort().map(d => ({ value: d, label: d }))}
+          />
+
+          <SelectInput
+            value={selectedEmployeeType}
+            onChange={(e) => setSelectedEmployeeType(e.target.value)}
+            id="emp-type-filter-select"
+            placeholder="All Staff Types"
+            options={[
+              { value: 'AAI', label: 'AAI Staff' },
+              { value: 'Contract', label: 'Contract / Outsourced' }
+            ]}
           />
 
           {hasActiveFilters ? (
@@ -468,8 +490,9 @@ export default function EmployeeDirectory() {
           <tr>
             <th className="col-emp-id">Employee ID</th>
             <th className="col-emp-name">Staff Member</th>
+            <th className="col-emp-type">Type &amp; Category</th>
             <th className="col-emp-desig">Designation</th>
-            <th className="col-emp-dept">Department & Location</th>
+            <th className="col-emp-dept">Department &amp; Location</th>
             <th className="col-emp-assets">Assigned Assets</th>
             <th className="col-emp-contact">Contact Details</th>
             <th className="col-emp-actions" style={{ textAlign: 'right' }}>Actions</th>
@@ -478,7 +501,7 @@ export default function EmployeeDirectory() {
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={7} style={{ textAlign: 'center', padding: 'var(--space-10) var(--space-4)' }}>
+              <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-10) var(--space-4)' }}>
                 <div className="pulse-dot" style={{ margin: '0 auto var(--space-3)' }} />
                 <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading staff records...</span>
               </td>
@@ -488,7 +511,7 @@ export default function EmployeeDirectory() {
               icon={Users}
               title="No staff members match criteria"
               description="Try adjusting your search query or filter selections to view all registered personnel."
-              colSpan={7}
+              colSpan={8}
               action={
                 hasActiveFilters ? (
                   <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
@@ -520,6 +543,31 @@ export default function EmployeeDirectory() {
                     title={`Click to view profile: ${emp.name}`}
                   >
                     {emp.name}
+                  </div>
+                </td>
+                <td className="col-emp-type">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <span
+                      className="badge"
+                      style={{
+                        width: 'fit-content',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        backgroundColor: emp.employeeType === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                        color: emp.employeeType === 'Contract' ? '#6D28D9' : '#1D4ED8',
+                        border: `1px solid ${emp.employeeType === 'Contract' ? '#C4B5FD' : '#93C5FD'}`
+                      }}
+                    >
+                      {emp.employeeType || 'AAI'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                      {emp.employmentCategory || 'Regular'}
+                    </span>
+                    {emp.contractorName && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }} title={`Contractor: ${emp.contractorName}`}>
+                        &bull; {emp.contractorName}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="col-emp-desig">
@@ -665,6 +713,17 @@ export default function EmployeeDirectory() {
                   <span className="badge badge-assigned" style={{ fontFamily: 'monospace', fontWeight: 700 }}>
                     {selectedEmployee.employeeId}
                   </span>
+                  <span
+                    className="badge"
+                    style={{
+                      backgroundColor: selectedEmployee.employeeType === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                      color: selectedEmployee.employeeType === 'Contract' ? '#6D28D9' : '#1D4ED8',
+                      border: `1px solid ${selectedEmployee.employeeType === 'Contract' ? '#C4B5FD' : '#93C5FD'}`,
+                      fontWeight: 700
+                    }}
+                  >
+                    {selectedEmployee.employeeType || 'AAI'} &bull; {selectedEmployee.employmentCategory || 'Regular'}
+                  </span>
                   <span className="badge badge-neutral">
                     {selectedEmployee.assignedAssetsCount || 0} Assets Custodied
                   </span>
@@ -676,6 +735,24 @@ export default function EmployeeDirectory() {
             </div>
 
             <div className="employee-info-grid">
+              <div className="employee-info-item">
+                <span className="employee-info-label">Employment Type &amp; Category</span>
+                <span className="employee-info-value">
+                  <Users size={15} color="var(--color-text-muted)" style={{ flexShrink: 0 }} />
+                  <strong>{selectedEmployee.employeeType || 'AAI'}</strong> &mdash; {selectedEmployee.employmentCategory || 'Regular'}
+                </span>
+              </div>
+
+              {selectedEmployee.contractorName && (
+                <div className="employee-info-item">
+                  <span className="employee-info-label">Contractor / Agency</span>
+                  <span className="employee-info-value">
+                    <Building2 size={15} color="#7C3AED" style={{ flexShrink: 0 }} />
+                    <strong style={{ color: '#7C3AED' }}>{selectedEmployee.contractorName}</strong>
+                  </span>
+                </div>
+              )}
+
               <div className="employee-info-item">
                 <span className="employee-info-label">Department</span>
                 <span className="employee-info-value">
@@ -1048,6 +1125,108 @@ export default function EmployeeDirectory() {
                 id="modal-employee-department"
               />
             </div>
+          </div>
+
+          {/* Employment Classification */}
+          <div style={{
+            background: 'var(--color-bg-subtle)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)'
+          }}>
+            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-brand-600)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Employment Classification
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+              <div className="form-group">
+                <label className="form-label">Employee Type *</label>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      employeeType: 'AAI',
+                      employmentCategory: formData.employmentCategory === 'Contractual' || formData.employmentCategory === 'Outsourced' ? 'Regular' : formData.employmentCategory,
+                      contractorName: ''
+                    })}
+                    className="btn btn-sm"
+                    style={{
+                      flex: 1,
+                      backgroundColor: formData.employeeType === 'AAI' ? 'var(--color-brand-600)' : 'var(--color-bg-surface)',
+                      color: formData.employeeType === 'AAI' ? '#ffffff' : 'var(--color-text-main)',
+                      border: `1px solid ${formData.employeeType === 'AAI' ? 'var(--color-brand-600)' : 'var(--border-subtle)'}`,
+                      fontWeight: formData.employeeType === 'AAI' ? 700 : 500
+                    }}
+                    id="btn-emp-type-aai"
+                  >
+                    AAI Staff
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({
+                      ...formData,
+                      employeeType: 'Contract',
+                      employmentCategory: formData.employmentCategory === 'Regular' || formData.employmentCategory === 'Deputation' ? 'Contractual' : formData.employmentCategory
+                    })}
+                    className="btn btn-sm"
+                    style={{
+                      flex: 1,
+                      backgroundColor: formData.employeeType === 'Contract' ? '#7C3AED' : 'var(--color-bg-surface)',
+                      color: formData.employeeType === 'Contract' ? '#ffffff' : 'var(--color-text-main)',
+                      border: `1px solid ${formData.employeeType === 'Contract' ? '#7C3AED' : 'var(--border-subtle)'}`,
+                      fontWeight: formData.employeeType === 'Contract' ? 700 : 500
+                    }}
+                    id="btn-emp-type-contract"
+                  >
+                    Contract / Outsourced
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Employment Category *</label>
+                <select
+                  className="form-select"
+                  value={formData.employmentCategory}
+                  onChange={(e) => setFormData({ ...formData, employmentCategory: e.target.value })}
+                  id="modal-employment-category"
+                >
+                  {formData.employeeType === 'AAI' ? (
+                    <>
+                      <option value="Regular">Regular / Permanent</option>
+                      <option value="Deputation">On Deputation</option>
+                      <option value="Intern">Trainee / Intern</option>
+                      <option value="Casual">Casual / Temporary</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Contractual">Contractual Staff</option>
+                      <option value="Outsourced">Outsourced Vendor Personnel</option>
+                      <option value="Casual">Casual / Ad-hoc</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {formData.employeeType === 'Contract' && (
+              <div className="form-group" style={{ marginTop: '4px' }}>
+                <label className="form-label">Contractor / Vendor Agency Name *</label>
+                <input
+                  type="text"
+                  required={formData.employeeType === 'Contract'}
+                  className="form-input"
+                  placeholder="e.g. Skyline IT Solutions / M/s TechServices"
+                  value={formData.contractorName}
+                  onChange={(e) => setFormData({ ...formData, contractorName: e.target.value })}
+                  id="modal-contractor-name"
+                />
+              </div>
+            )}
           </div>
 
           <div className="form-group">

@@ -42,6 +42,98 @@ import Modal from '../components/ui/Modal';
 import LoadMoreButton from '../components/ui/LoadMoreButton';
 import { downloadAuthenticatedPdf, verificationApi } from '../services/api';
 
+/**
+ * Canonical Category -> Asset Type mapping for AAI AMS.
+ * Categorically distinguishes broad business classifications from equipment types.
+ */
+export const CANONICAL_CATEGORY_MAP = {
+  'IT Equipment': [
+    { key: 'DESKTOP', label: 'Desktop Workstation / PC' },
+    { key: 'LAPTOP', label: 'Laptop / Notebook' },
+    { key: 'WORKSTATION', label: 'High-Performance Workstation' },
+    { key: 'SERVER', label: 'Enterprise Server' },
+    { key: 'MONITOR', label: 'Display Screen / Monitor' },
+    { key: 'STORAGE', label: 'Storage Subsystem (NAS / SAN / DAS)' },
+    { key: 'THIN_CLIENT', label: 'Thin Client Terminal' }
+  ],
+  'Networking': [
+    { key: 'NETWORK', label: 'Network Equipment (Generic)' },
+    { key: 'SWITCH', label: 'Network Switch' },
+    { key: 'ROUTER', label: 'Router / Gateway' },
+    { key: 'FIREWALL', label: 'Firewall / UTM Appliance' },
+    { key: 'ACCESS_POINT', label: 'Wireless Access Point' },
+    { key: 'MODEM', label: 'Modem / ADSL / Cable' }
+  ],
+  'Power': [
+    { key: 'UPS', label: 'Uninterruptible Power Supply (UPS)' },
+    { key: 'BATTERY_BANK', label: 'Battery Bank / Inverter' },
+    { key: 'STABILIZER', label: 'Voltage Stabilizer / AVR' },
+    { key: 'PDU', label: 'Power Distribution Unit (PDU)' }
+  ],
+  'Printing': [
+    { key: 'PRINTER', label: 'Printer (Laser / Inkjet / Dot Matrix)' },
+    { key: 'SCANNER', label: 'Scanner (Sheetfed / Flatbed)' },
+    { key: 'MULTIFUNCTION_PRINTER', label: 'Multifunction / All-in-One Printer' },
+    { key: 'PLOTTER', label: 'Plotter / Wide Format Printer' }
+  ],
+  'Communication': [
+    { key: 'INTERCOM', label: 'Intercom System / EPABX Terminal' },
+    { key: 'TELEPHONE', label: 'Telephone / IP Phone' },
+    { key: 'COMMUNICATION_DEVICE', label: 'Communication Device (Generic)' },
+    { key: 'RADIO', label: 'Radio / VHF Equipment' }
+  ],
+  'Surveillance': [
+    { key: 'CCTV', label: 'CCTV Camera' },
+    { key: 'DVR_NVR', label: 'DVR / NVR Recorder' },
+    { key: 'ACCESS_CONTROL', label: 'Access Control System' },
+    { key: 'BIOMETRIC', label: 'Biometric Attendance Terminal' }
+  ],
+  'Office Equipment': [
+    { key: 'PROJECTOR', label: 'Projector / Presentation Display' },
+    { key: 'PERIPHERAL', label: 'Peripheral Device' },
+    { key: 'SHREDDER', label: 'Document Shredder' },
+    { key: 'LAMINATOR', label: 'Laminator' },
+    { key: 'BINDING', label: 'Binding Machine' }
+  ],
+  'Furniture': [
+    { key: 'OTHER', label: 'Furniture / Fixture Item' }
+  ],
+  'Other': [
+    { key: 'OTHER', label: 'Other Operational Equipment' }
+  ]
+};
+
+export const getAssetTypesForCategory = (catName = '') => {
+  if (!catName) return CANONICAL_CATEGORY_MAP['IT Equipment'];
+  if (CANONICAL_CATEGORY_MAP[catName]) return CANONICAL_CATEGORY_MAP[catName];
+  const lower = catName.toLowerCase();
+  for (const [cat, types] of Object.entries(CANONICAL_CATEGORY_MAP)) {
+    if (cat.toLowerCase() === lower) return types;
+  }
+  if (lower.includes('desktop') || lower.includes('pc') || lower.includes('laptop') || lower.includes('server') || lower.includes('monitor') || lower.includes('workstation')) {
+    return CANONICAL_CATEGORY_MAP['IT Equipment'];
+  }
+  if (lower.includes('printer') || lower.includes('scanner') || lower.includes('plotter')) {
+    return CANONICAL_CATEGORY_MAP['Printing'];
+  }
+  if (lower.includes('power') || lower.includes('ups') || lower.includes('battery')) {
+    return CANONICAL_CATEGORY_MAP['Power'];
+  }
+  if (lower.includes('network') || lower.includes('switch') || lower.includes('router') || lower.includes('firewall')) {
+    return CANONICAL_CATEGORY_MAP['Networking'];
+  }
+  if (lower.includes('intercom') || lower.includes('phone') || lower.includes('communication')) {
+    return CANONICAL_CATEGORY_MAP['Communication'];
+  }
+  if (lower.includes('cctv') || lower.includes('surveillance') || lower.includes('biometric')) {
+    return CANONICAL_CATEGORY_MAP['Surveillance'];
+  }
+  if (lower.includes('projector') || lower.includes('shredder') || lower.includes('office')) {
+    return CANONICAL_CATEGORY_MAP['Office Equipment'];
+  }
+  return CANONICAL_CATEGORY_MAP['Other'];
+};
+
 export default function AssetInventory() {
   const { user, token } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -133,7 +225,7 @@ export default function AssetInventory() {
     assetName: '',
     assetType: 'DESKTOP',
     oldAssetId: '',
-    category: 'Desktop PC',
+    category: 'IT Equipment',
     make: '',
     model: '',
     serialNumber: '',
@@ -296,12 +388,13 @@ export default function AssetInventory() {
 
   const handleCategoryChange = (catName, isEdit = false) => {
     const isPeripheral = isPeripheralCategory(catName);
-    const derivedType = deriveAssetTypeFromCategory(catName);
+    const availableTypes = getAssetTypesForCategory(catName);
+    const defaultType = availableTypes[0]?.key || 'OTHER';
     if (isEdit) {
       setEditFormData(prev => ({
         ...prev,
         category: catName,
-        assetType: derivedType,
+        assetType: availableTypes.some(t => t.key === prev?.assetType) ? prev.assetType : defaultType,
         operatingSystem: isPeripheral ? 'N/A' : (prev.operatingSystem === 'N/A' ? 'Windows 11 Enterprise' : prev.operatingSystem),
         osVersion: isPeripheral ? '' : (prev.osVersion || '23H2')
       }));
@@ -309,7 +402,7 @@ export default function AssetInventory() {
       setFormData(prev => ({
         ...prev,
         category: catName,
-        assetType: derivedType,
+        assetType: defaultType,
         operatingSystem: isPeripheral ? 'N/A' : (prev.operatingSystem === 'N/A' ? 'Windows 11 Enterprise' : prev.operatingSystem),
         osVersion: isPeripheral ? '' : (prev.osVersion || '23H2')
       }));
@@ -317,10 +410,12 @@ export default function AssetInventory() {
   };
 
   const handleOpenEditModal = (asset) => {
+    const catTypes = getAssetTypesForCategory(asset.category);
+    const initialType = asset.assetType || catTypes[0]?.key || 'OTHER';
     setEditFormData({
       assetId: asset.assetId,
       assetName: asset.assetName,
-      assetType: asset.assetType || deriveAssetTypeFromCategory(asset.category),
+      assetType: initialType,
       oldAssetId: asset.oldAssetId || '',
       category: asset.category,
       make: asset.make,
@@ -2142,8 +2237,8 @@ export default function AssetInventory() {
                     onChange={(e) => handleCategoryChange(e.target.value, false)}
                     id="asset-category-input"
                   >
-                    {categories.map((c) => (
-                      <option key={c.code} value={c.name}>{c.name}</option>
+                    {Object.keys(CANONICAL_CATEGORY_MAP).map((catName) => (
+                      <option key={catName} value={catName}>{catName}</option>
                     ))}
                   </select>
                 </div>
@@ -2157,25 +2252,9 @@ export default function AssetInventory() {
                     onChange={(e) => setFormData({ ...formData, assetType: e.target.value })}
                     id="asset-type-input"
                   >
-                    {assetTypesList.length > 0 ? (
-                      assetTypesList.map(t => (
-                        <option key={t.key} value={t.key}>{t.label || t.key}</option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="DESKTOP">DESKTOP</option>
-                        <option value="LAPTOP">LAPTOP</option>
-                        <option value="PRINTER">PRINTER</option>
-                        <option value="SCANNER">SCANNER</option>
-                        <option value="UPS">UPS</option>
-                        <option value="MONITOR">MONITOR</option>
-                        <option value="SERVER">SERVER</option>
-                        <option value="NETWORK">NETWORK</option>
-                        <option value="STORAGE">STORAGE</option>
-                        <option value="PERIPHERAL">PERIPHERAL</option>
-                        <option value="OTHER">OTHER</option>
-                      </>
-                    )}
+                    {getAssetTypesForCategory(formData.category).map(t => (
+                      <option key={t.key} value={t.key}>{t.label || t.key}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2843,9 +2922,12 @@ export default function AssetInventory() {
                       onChange={(e) => handleCategoryChange(e.target.value, true)}
                       id="edit-asset-category-input"
                     >
-                      {categories.map((c) => (
-                        <option key={c.code} value={c.name}>{c.name}</option>
+                      {Object.keys(CANONICAL_CATEGORY_MAP).map((catName) => (
+                        <option key={catName} value={catName}>{catName}</option>
                       ))}
+                      {!Object.keys(CANONICAL_CATEGORY_MAP).includes(editFormData.category) && editFormData.category && (
+                        <option value={editFormData.category}>{editFormData.category} (Legacy)</option>
+                      )}
                     </select>
                   </div>
 
@@ -2858,25 +2940,20 @@ export default function AssetInventory() {
                       onChange={(e) => setEditFormData({ ...editFormData, assetType: e.target.value })}
                       id="edit-asset-type-input"
                     >
-                      {assetTypesList.length > 0 ? (
-                        assetTypesList.map(t => (
-                          <option key={t.key} value={t.key}>{t.label || t.key}</option>
-                        ))
-                      ) : (
-                        <>
-                          <option value="DESKTOP">DESKTOP</option>
-                          <option value="LAPTOP">LAPTOP</option>
-                          <option value="PRINTER">PRINTER</option>
-                          <option value="SCANNER">SCANNER</option>
-                          <option value="UPS">UPS</option>
-                          <option value="MONITOR">MONITOR</option>
-                          <option value="SERVER">SERVER</option>
-                          <option value="NETWORK">NETWORK</option>
-                          <option value="STORAGE">STORAGE</option>
-                          <option value="PERIPHERAL">PERIPHERAL</option>
-                          <option value="OTHER">OTHER</option>
-                        </>
-                      )}
+                      {(() => {
+                        const types = getAssetTypesForCategory(editFormData.category);
+                        const hasCurrent = types.some(t => t.key === editFormData.assetType);
+                        return (
+                          <>
+                            {types.map(t => (
+                              <option key={t.key} value={t.key}>{t.label || t.key}</option>
+                            ))}
+                            {!hasCurrent && editFormData.assetType && (
+                              <option value={editFormData.assetType}>{editFormData.assetType} (Stored)</option>
+                            )}
+                          </>
+                        );
+                      })()}
                     </select>
                   </div>
                 </div>

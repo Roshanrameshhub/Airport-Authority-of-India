@@ -18,6 +18,9 @@ export const createEmployeeSchema = z.object({
   }).min(1, 'Floor must be specified').trim(),
   email: z.string().email('Invalid email address format').optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
+  employeeType: z.enum(['AAI', 'Contract']).optional().default('AAI'),
+  employmentCategory: z.string().optional().default('Regular'),
+  contractorName: z.string().optional().default(''),
   createLoginAccount: z.boolean().optional().default(true)
 });
 

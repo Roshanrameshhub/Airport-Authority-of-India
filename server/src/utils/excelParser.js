@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import officecrypto from 'officecrypto-tool';
 import XlsxPopulate from 'xlsx-populate';
 import { CANONICAL_FIELDS, cleanHeaderText, matchHeader } from '../services/columnMappingService.js';
+import { CORE_LOCKED_FIELDS, ENTERPRISE_EXTENDED_FIELDS } from '../services/excelFieldService.js';
 
 /**
  * Deduce equipment category if not explicitly specified
@@ -580,6 +581,15 @@ export const extractSheetRows = (sheet, {
       operatingSystem: '',
       osVersion: '',
       remarks: '',
+      employeeType: '',
+      employmentCategory: '',
+      contractorName: '',
+      status: '',
+      condition: '',
+      transferReason: '',
+      warrantyStartDate: null,
+      warrantyStatus: '',
+      amcEndDate: null,
       category: '',
       assetId: '',
       oldAssetId: '',
@@ -618,7 +628,7 @@ export const extractSheetRows = (sheet, {
           rowObj.supportingDetails.push(`${headerName}: ${valStr}`);
         }
       } else if (rowObj.hasOwnProperty(canonicalKey) && canonicalKey !== 'customFields' && canonicalKey !== '_source' && canonicalKey !== '_sheetMeta' && canonicalKey !== 'supportingDetails') {
-        if (canonicalKey === 'installDate' || canonicalKey === 'warrantyEndDate' || canonicalKey === 'purchaseDate') {
+        if (canonicalKey === 'installDate' || canonicalKey === 'warrantyEndDate' || canonicalKey === 'purchaseDate' || canonicalKey === 'warrantyStartDate' || canonicalKey === 'amcEndDate') {
           rowObj[canonicalKey] = normalizeExcelDate(cellValue);
         } else {
           const valStr = String(cellValue !== undefined && cellValue !== null ? cellValue : '').trim();
@@ -691,58 +701,15 @@ export const parseExcelBuffer = (buffer, fileName = 'uploaded_spreadsheet.xlsx')
 };
 
 /**
- * Generate downloadable Excel Template buffer dynamically from configured fields (Preserves 13 fields)
+ * Generate downloadable Excel Template buffer containing ALL supported enterprise attributes
+ * Preserves the 13 core business fields in positions 1-13 for 100% backward compatibility
  */
 export const generateSampleTemplate = (configuredFields = null) => {
-  if (!configuredFields || configuredFields.length === 0) {
-    const headers = [
-      'User Name',
-      'Designation',
-      'Department',
-      'Floor',
-      'Employee ID',
-      'Asset Name',
-      'Make / Company',
-      'Model',
-      'Serial Number',
-      'Install Date',
-      'Warranty End Date',
-      'Type of OS + Version',
-      'Remarks'
-    ];
+  const fieldsToUse = (configuredFields && configuredFields.length > 0)
+    ? configuredFields
+    : [...CORE_LOCKED_FIELDS, ...ENTERPRISE_EXTENDED_FIELDS];
 
-    const templateGuidanceRow = [
-      'e.g. Employee Full Name (or leave blank if unassigned)',
-      'e.g. Staff Official Designation',
-      'e.g. Department / Division Name',
-      'e.g. Floor / Office Room Location',
-      'e.g. Staff ID (e.g. AAI-10842)',
-      'e.g. Equipment Name (e.g. Desktop PC)',
-      'e.g. Dell / HP / Lenovo / Apple',
-      'e.g. Hardware Model Name',
-      'e.g. Unique Hardware Serial Number',
-      'YYYY-MM-DD (e.g. 2024-01-15)',
-      'YYYY-MM-DD (e.g. 2027-01-15)',
-      'e.g. Windows 11 Enterprise (23H2) / Linux / N/A',
-      'e.g. Handover notes or operational remarks'
-    ];
-
-    const wsData = [headers, templateGuidanceRow];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    ws['!cols'] = [
-      { wch: 18 }, { wch: 26 }, { wch: 36 }, { wch: 25 }, { wch: 14 },
-      { wch: 32 }, { wch: 16 }, { wch: 22 }, { wch: 20 }, { wch: 14 },
-      { wch: 18 }, { wch: 28 }, { wch: 40 }
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Asset_Import_Template');
-    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-  }
-
-  // Dynamic template based on active import fields
-  const sorted = [...configuredFields].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const sorted = [...fieldsToUse].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const headers = sorted.map(f => f.displayName);
 
   const guidanceRow = sorted.map(f => {
@@ -759,6 +726,34 @@ export const generateSampleTemplate = (configuredFields = null) => {
     if (f.fieldId === 'warrantyEndDate') return 'YYYY-MM-DD (e.g. 2027-01-15)';
     if (f.fieldId === 'operatingSystem') return 'e.g. Windows 11 Enterprise (23H2) / Linux / N/A';
     if (f.fieldId === 'remarks') return 'e.g. Handover notes or operational remarks';
+    if (f.fieldId === 'employeeType') return 'e.g. AAI / Contract';
+    if (f.fieldId === 'employmentCategory') return 'e.g. Regular / Contractual / Outsourced / Deputation';
+    if (f.fieldId === 'contractorName') return 'e.g. Skyline IT Services Pvt Ltd (if Contract)';
+    if (f.fieldId === 'category') return 'e.g. IT Equipment / Networking / Power / Printing';
+    if (f.fieldId === 'assetType') return 'e.g. DESKTOP / LAPTOP / ROUTER / UPS / PRINTER';
+    if (f.fieldId === 'oldAssetId') return 'e.g. AAI-OLD-2019-0412 (Legacy Tag)';
+    if (f.fieldId === 'status') return 'e.g. AVAILABLE / ASSIGNED / GODOWN / UNDER_MAINTENANCE';
+    if (f.fieldId === 'condition') return 'e.g. EXCELLENT / GOOD / FAIR / POOR';
+    if (f.fieldId === 'transferReason') return 'e.g. Initial Staff Assignment / Station Upgrade';
+    if (f.fieldId === 'processor') return 'e.g. Intel Core i7-12700 / AMD Ryzen 7';
+    if (f.fieldId === 'ramSizeGb') return 'e.g. 16 / 32 / 64';
+    if (f.fieldId === 'storageCapacityGb') return 'e.g. 512 / 1000';
+    if (f.fieldId === 'storageType') return 'e.g. SSD / NVMe / HDD';
+    if (f.fieldId === 'hostname') return 'e.g. AAI-DEL-ATC01';
+    if (f.fieldId === 'ipAddress') return 'e.g. 192.168.1.105';
+    if (f.fieldId === 'macAddress') return 'e.g. 00:1A:2B:3C:4D:5E';
+    if (f.fieldId === 'location') return 'e.g. Technical Block / Operational Offices';
+    if (f.fieldId === 'room') return 'e.g. Room 302 / ATC Terminal Bay 4';
+    if (f.fieldId === 'intercom') return 'e.g. 4521 / 2309';
+    if (f.fieldId === 'supplier') return 'e.g. M/s Wipro Technologies / Dell India';
+    if (f.fieldId === 'supplyOrderNumber') return 'e.g. AAI/IT/2024/PO-0891';
+    if (f.fieldId === 'purchaseCost') return 'e.g. 68500';
+    if (f.fieldId === 'purchaseDate') return 'YYYY-MM-DD (e.g. 2024-01-10)';
+    if (f.fieldId === 'warrantyStartDate') return 'YYYY-MM-DD (e.g. 2024-01-15)';
+    if (f.fieldId === 'warrantyStatus') return 'e.g. ACTIVE / EXPIRING / EXPIRED / AMC';
+    if (f.fieldId === 'amcApplicable') return 'e.g. TRUE / FALSE';
+    if (f.fieldId === 'amcContractId') return 'e.g. AMC-2024-CNS-012';
+    if (f.fieldId === 'amcEndDate') return 'YYYY-MM-DD (e.g. 2026-12-31)';
 
     if (f.dataType === 'DATE') return 'YYYY-MM-DD';
     if (f.dataType === 'NUMBER') return 'e.g. 125000';
@@ -775,7 +770,7 @@ export const generateSampleTemplate = (configuredFields = null) => {
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Asset_Import_Template');
+  XLSX.utils.book_append_sheet(wb, ws, 'AAI_Enterprise_Template');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 };
 

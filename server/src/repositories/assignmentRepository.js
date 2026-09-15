@@ -372,6 +372,10 @@ export const assignmentRepository = {
       department: employee.department,
       floor: employee.floor,
       designation: employee.designation,
+      // Capture employee classification snapshot at time of custody event
+      employeeType: employee.employeeType || 'AAI',
+      employmentCategory: employee.employmentCategory || '',
+      contractorName: employee.contractorName || '',
       assignedDate: new Date(),
       returnedDate: null,
       status: 'ACTIVE',
@@ -399,6 +403,7 @@ export const assignmentRepository = {
     }
 
     // 5. Update Asset to ASSIGNED status and record current custodian
+    // GUARD: Only Asset fields are mutated. Employee collection is NEVER touched.
     await assetRepository.update(asset.assetId, {
       status: 'ASSIGNED',
       condition,
@@ -406,6 +411,9 @@ export const assignmentRepository = {
       currentEmployeeName: employee.name,
       currentDesignation: employee.designation,
       currentAssignmentDate: new Date(),
+      currentEmployeeType: employee.employeeType || 'AAI',
+      currentEmploymentCategory: employee.employmentCategory || '',
+      currentContractorName: employee.contractorName || '',
       department: employee.department,
       floor: employee.floor
     }, { session });
@@ -534,6 +542,10 @@ export const assignmentRepository = {
       department: targetEmployee.department,
       floor: targetEmployee.floor,
       designation: targetEmployee.designation,
+      // Capture classification snapshot at time of transfer
+      employeeType: targetEmployee.employeeType || 'AAI',
+      employmentCategory: targetEmployee.employmentCategory || '',
+      contractorName: targetEmployee.contractorName || '',
       assignedDate: now,
       returnedDate: null,
       status: 'ACTIVE',
@@ -561,6 +573,7 @@ export const assignmentRepository = {
     }
 
     // 6. Update Asset record with new custodian details
+    // GUARD: Only Asset fields are mutated. Employee collection is NEVER touched.
     await assetRepository.update(asset.assetId, {
       status: 'ASSIGNED',
       condition: conditionAtNewAssignment,
@@ -568,6 +581,9 @@ export const assignmentRepository = {
       currentEmployeeName: targetEmployee.name,
       currentDesignation: targetEmployee.designation,
       currentAssignmentDate: now,
+      currentEmployeeType: targetEmployee.employeeType || 'AAI',
+      currentEmploymentCategory: targetEmployee.employmentCategory || '',
+      currentContractorName: targetEmployee.contractorName || '',
       department: targetEmployee.department,
       floor: targetEmployee.floor
     }, { session });

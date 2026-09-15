@@ -205,11 +205,438 @@ export const CORE_LOCKED_FIELDS = [
   }
 ];
 
-// Fallback in-memory cache for test suites or offline environments
-let memoryFieldCache = [...CORE_LOCKED_FIELDS];
+/**
+ * Enterprise Extended Fields (Positions 14-41)
+ * Covering all supported attributes: Employee Master, Asset, Assignment, Technical, Network, Procurement, Warranty, AMC, Location, Status
+ */
+export const ENTERPRISE_EXTENDED_FIELDS = [
+  {
+    fieldId: 'employeeType',
+    fieldName: 'employeeType',
+    displayName: 'Employee Type',
+    dataType: 'SELECT',
+    options: ['AAI', 'Contract'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 14,
+    description: 'AAI permanent staff or Contract / Outsourced personnel',
+    aliases: ['employee type', 'emp type', 'staff type', 'employment type', 'type of employee', 'emp. type']
+  },
+  {
+    fieldId: 'employmentCategory',
+    fieldName: 'employmentCategory',
+    displayName: 'Employment Category',
+    dataType: 'SELECT',
+    options: ['Regular', 'Contractual', 'Outsourced', 'Deputation', 'Casual', 'Intern'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 15,
+    description: 'Employment category',
+    aliases: ['employment category', 'emp category', 'staff category', 'category of employment', 'employment class', 'emp. category']
+  },
+  {
+    fieldId: 'contractorName',
+    fieldName: 'contractorName',
+    displayName: 'Contractor / Agency',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 16,
+    description: 'Outsourced staffing agency or contractor company name',
+    aliases: ['contractor', 'contractor name', 'agency', 'contractor / agency', 'vendor name agency', 'contractor / vendor', 'staffing agency', 'outsourced vendor']
+  },
+  {
+    fieldId: 'category',
+    fieldName: 'category',
+    displayName: 'Category',
+    dataType: 'SELECT',
+    options: ['IT Equipment', 'Networking', 'Power', 'Printing', 'Communication', 'Surveillance', 'Office Equipment', 'Furniture', 'Other'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 17,
+    description: 'Broad business asset classification',
+    aliases: ['category', 'asset category', 'equipment category', 'classification', 'hardware category']
+  },
+  {
+    fieldId: 'assetType',
+    fieldName: 'assetType',
+    displayName: 'Asset Type',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 18,
+    description: 'Specific equipment type (DESKTOP, LAPTOP, ROUTER, etc.)',
+    aliases: ['asset type', 'equipment type', 'type of asset', 'hardware type', 'item type']
+  },
+  {
+    fieldId: 'oldAssetId',
+    fieldName: 'oldAssetId',
+    displayName: 'Old Asset ID',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 19,
+    description: 'Previous AAI fixed asset register number or legacy tag',
+    aliases: ['old asset id', 'old asset tag', 'previous asset id', 'old tag', 'legacy asset id', 'legacy tag', 'old tag no', 'old code', 'old asset no']
+  },
+  {
+    fieldId: 'status',
+    fieldName: 'status',
+    displayName: 'Asset Status',
+    dataType: 'SELECT',
+    options: ['AVAILABLE', 'ASSIGNED', 'GODOWN', 'UNDER_MAINTENANCE', 'UNDER_REPAIR', 'FAULTY', 'DAMAGED', 'RETIRED', 'DISPOSED', 'WRITE_OFF', 'LOST'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 20,
+    description: 'Asset lifecycle operational state',
+    aliases: ['status', 'asset status', 'equipment status', 'current status', 'lifecycle status', 'hardware status']
+  },
+  {
+    fieldId: 'condition',
+    fieldName: 'condition',
+    displayName: 'Physical Condition',
+    dataType: 'SELECT',
+    options: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'UNUSABLE'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 21,
+    description: 'Physical operating state of the asset',
+    aliases: ['condition', 'physical condition', 'asset condition', 'hardware condition', 'working condition']
+  },
+  {
+    fieldId: 'transferReason',
+    fieldName: 'transferReason',
+    displayName: 'Assignment Reason',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 22,
+    description: 'Custody assignment justification or handover reason',
+    aliases: ['assignment reason', 'transfer reason', 'allocation reason', 'reason', 'purpose', 'justification']
+  },
+  {
+    fieldId: 'processor',
+    fieldName: 'processor',
+    displayName: 'Processor',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 23,
+    description: 'CPU chip model and specification',
+    aliases: ['processor', 'cpu', 'cpu details', 'chip', 'processor model', 'processor speed']
+  },
+  {
+    fieldId: 'ramSizeGb',
+    fieldName: 'ramSizeGb',
+    displayName: 'RAM (GB)',
+    dataType: 'NUMBER',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 24,
+    description: 'System RAM capacity in GB',
+    aliases: ['ram', 'ram size', 'ram gb', 'memory', 'ram (gb)', 'ram capacity', 'memory gb', 'installed ram']
+  },
+  {
+    fieldId: 'storageCapacityGb',
+    fieldName: 'storageCapacityGb',
+    displayName: 'Storage (GB)',
+    dataType: 'NUMBER',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 25,
+    description: 'Primary storage capacity in GB',
+    aliases: ['storage', 'storage capacity', 'hdd capacity', 'ssd capacity', 'hard disk', 'storage gb', 'disk size', 'hdd size', 'ssd size', 'storage (gb)']
+  },
+  {
+    fieldId: 'storageType',
+    fieldName: 'storageType',
+    displayName: 'Storage Type',
+    dataType: 'SELECT',
+    options: ['SSD', 'NVMe', 'HDD', 'Hybrid'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 26,
+    description: 'Storage disk medium',
+    aliases: ['storage type', 'disk type', 'drive type', 'ssd/hdd', 'hdd/ssd']
+  },
+  {
+    fieldId: 'hostname',
+    fieldName: 'hostname',
+    displayName: 'Hostname',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 27,
+    description: 'NetBIOS or network workstation name',
+    aliases: ['hostname', 'host name', 'computer name', 'machine name', 'netbios name']
+  },
+  {
+    fieldId: 'ipAddress',
+    fieldName: 'ipAddress',
+    displayName: 'IP Address',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 28,
+    description: 'Assigned IPv4 or IPv6 network address',
+    aliases: ['ip address', 'ip', 'ip addr', 'host ip', 'static ip', 'network ip', 'ipv4', 'terminal ip', 'device ip']
+  },
+  {
+    fieldId: 'macAddress',
+    fieldName: 'macAddress',
+    displayName: 'MAC Address',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 29,
+    description: 'Hardware network interface physical address',
+    aliases: ['mac address', 'mac', 'mac addr', 'physical address', 'ethernet address', 'lan mac', 'ethernet mac']
+  },
+  {
+    fieldId: 'location',
+    fieldName: 'location',
+    displayName: 'Building / Location',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 30,
+    description: 'Airport campus building or complex',
+    aliases: ['facility', 'airport', 'airport location', 'station', 'airport name', 'campus', 'building / location']
+  },
+  {
+    fieldId: 'room',
+    fieldName: 'room',
+    displayName: 'Room / Bay',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 31,
+    description: 'Specific office, cubicle, cabin or console room',
+    aliases: ['room', 'room no', 'room number', 'cubicle', 'bay', 'cabin', 'chamber', 'office room', 'room / bay']
+  },
+  {
+    fieldId: 'intercom',
+    fieldName: 'intercom',
+    displayName: 'Intercom',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 32,
+    description: 'Internal phone intercom extension',
+    aliases: ['intercom', 'intercom no', 'intercom number', 'ext', 'extension', 'ext no', 'extension no', 'phone ext']
+  },
+  {
+    fieldId: 'supplier',
+    fieldName: 'supplier',
+    displayName: 'Supplier / Vendor',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 33,
+    description: 'Supplying company or GeM vendor',
+    aliases: ['supplier', 'supplier name', 'vendor name', 'party name', 'dealer', 'purchased from', 'source vendor', 'source supplier']
+  },
+  {
+    fieldId: 'supplyOrderNumber',
+    fieldName: 'supplyOrderNumber',
+    displayName: 'Supply Order / PO No',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 34,
+    description: 'Purchase order, contract number or reference',
+    aliases: ['supply order number', 'supply order no', 'so no', 'po number', 'po no', 'purchase order', 'order no', 'purchase order no', 'gem order no', 'gem contract no', 'so number']
+  },
+  {
+    fieldId: 'purchaseCost',
+    fieldName: 'purchaseCost',
+    displayName: 'Purchase Cost (INR)',
+    dataType: 'NUMBER',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 35,
+    description: 'Acquisition cost in Indian Rupees',
+    aliases: ['purchase cost', 'cost', 'basic cost', 'rate', 'price', 'purchase price', 'value', 'amount', 'unit price', 'procurement cost']
+  },
+  {
+    fieldId: 'purchaseDate',
+    fieldName: 'purchaseDate',
+    displayName: 'Purchase Date',
+    dataType: 'DATE',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 36,
+    description: 'Official invoice or purchase agreement date',
+    aliases: ['purchase date', 'po date', 'order date', 'procurement date', 'date of purchase']
+  },
+  {
+    fieldId: 'warrantyStartDate',
+    fieldName: 'warrantyStartDate',
+    displayName: 'Warranty Start Date',
+    dataType: 'DATE',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 37,
+    description: 'OEM or vendor warranty coverage start date',
+    aliases: ['warranty start', 'warranty start date', 'warranty begins', 'warranty from', 'warranty commencement']
+  },
+  {
+    fieldId: 'warrantyStatus',
+    fieldName: 'warrantyStatus',
+    displayName: 'Warranty Status',
+    dataType: 'SELECT',
+    options: ['ACTIVE', 'EXPIRING', 'EXPIRED', 'AMC'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 38,
+    description: 'Current warranty state',
+    aliases: ['warranty status', 'warranty state', 'warranty coverage']
+  },
+  {
+    fieldId: 'amcApplicable',
+    fieldName: 'amcApplicable',
+    displayName: 'AMC Applicable',
+    dataType: 'BOOLEAN',
+    options: ['TRUE', 'FALSE'],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 39,
+    description: 'Whether asset is covered under maintenance contract',
+    aliases: ['amc applicable', 'under amc', 'amc status', 'amc covered', 'amc warranty']
+  },
+  {
+    fieldId: 'amcContractId',
+    fieldName: 'amcContractId',
+    displayName: 'AMC Contract ID',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 40,
+    description: 'Contract SLA reference or agreement identifier',
+    aliases: ['amc contract id', 'amc contract no', 'amc agreement no', 'amc ref', 'amc reference', 'sla id']
+  },
+  {
+    fieldId: 'amcEndDate',
+    fieldName: 'amcEndDate',
+    displayName: 'AMC End Date',
+    dataType: 'DATE',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 41,
+    description: 'Maintenance agreement contract termination date',
+    aliases: ['amc end', 'amc end date', 'amc expiry', 'amc valid till', 'amc expiration', 'amc termination date']
+  }
+];
+
+// Fallback in-memory cache combining Core 13 + Enterprise Extended Fields
+let memoryFieldCache = [...CORE_LOCKED_FIELDS, ...ENTERPRISE_EXTENDED_FIELDS];
 
 /**
- * Seed 13 core business fields idempotently in database
+ * Seed 13 core business fields + enterprise extended fields idempotently
  */
 export const seedCoreFields = async () => {
   if (mongoose.connection.readyState !== 1) {
@@ -232,7 +659,23 @@ export const seedCoreFields = async () => {
         { upsert: true, new: true }
       );
     }
-    logger.info('[ExcelFieldService] Verified 13 Core Locked Business Fields.');
+
+    for (const field of ENTERPRISE_EXTENDED_FIELDS) {
+      await ExcelFieldConfig.findOneAndUpdate(
+        { fieldId: field.fieldId },
+        {
+          $setOnInsert: {
+            ...field,
+            isLocked: false,
+            enabled: true,
+            importEnabled: true,
+            exportEnabled: true
+          }
+        },
+        { upsert: true, new: true }
+      );
+    }
+    logger.info('[ExcelFieldService] Verified 13 Core Locked Business Fields + Enterprise Extended Fields.');
   } catch (err) {
     logger.warn(`[ExcelFieldService] Seeding core fields warning: ${err.message}`);
   }
@@ -261,7 +704,11 @@ export const excelFieldService = {
       try {
         const fields = await ExcelFieldConfig.find().sort({ sortOrder: 1, createdAt: 1 }).lean();
         if (fields && fields.length > 0) {
-          return fields;
+          // If DB is missing any enterprise extended fields, merge them seamlessly
+          const existingIds = new Set(fields.map(f => f.fieldId));
+          const missingExtended = ENTERPRISE_EXTENDED_FIELDS.filter(f => !existingIds.has(f.fieldId));
+          const combined = [...fields, ...missingExtended].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          return combined;
         }
       } catch (err) {
         logger.warn(`[ExcelFieldService] DB fetch failed, falling back to cache: ${err.message}`);

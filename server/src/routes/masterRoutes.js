@@ -7,7 +7,8 @@ import {
   getVendors,
   getStatuses,
   getConditions,
-  getAssetTypes
+  getAssetTypes,
+  getCategoryAssetTypeMap
 } from '../controllers/masterController.js';
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.get('/vendors', getVendors);
 router.get('/statuses', getStatuses);
 router.get('/conditions', getConditions);
 router.get('/asset-types', getAssetTypes);
+router.get('/category-asset-type-map', getCategoryAssetTypeMap);
 
 export default router;

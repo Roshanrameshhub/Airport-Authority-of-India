@@ -4,6 +4,84 @@ import { locationRepository } from '../repositories/locationRepository.js';
 import { vendorRepository } from '../repositories/vendorRepository.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
+/**
+ * Canonical Category → Asset Type mapping for AAI AMS.
+ * Drives dynamic cascade dropdown in UI and backend validation.
+ */
+export const CATEGORY_ASSET_TYPE_MAP = {
+  'IT Equipment': [
+    { key: 'DESKTOP', label: 'Desktop Workstation / PC', hasConfig: 'computerConfig' },
+    { key: 'LAPTOP', label: 'Laptop / Notebook', hasConfig: 'computerConfig' },
+    { key: 'WORKSTATION', label: 'High-Performance Workstation', hasConfig: 'computerConfig' },
+    { key: 'SERVER', label: 'Enterprise Server', hasConfig: 'computerConfig' },
+    { key: 'MONITOR', label: 'Display Screen / Monitor', hasConfig: 'displayConfig' },
+    { key: 'STORAGE', label: 'Storage Subsystem (NAS / SAN / DAS)', hasConfig: 'computerConfig' },
+    { key: 'THIN_CLIENT', label: 'Thin Client Terminal', hasConfig: 'computerConfig' }
+  ],
+  'Networking': [
+    { key: 'NETWORK', label: 'Network Equipment (Generic)', hasConfig: 'networkConfig' },
+    { key: 'SWITCH', label: 'Network Switch', hasConfig: 'networkConfig' },
+    { key: 'ROUTER', label: 'Router / Gateway', hasConfig: 'networkConfig' },
+    { key: 'FIREWALL', label: 'Firewall / UTM Appliance', hasConfig: 'networkConfig' },
+    { key: 'ACCESS_POINT', label: 'Wireless Access Point', hasConfig: 'networkConfig' },
+    { key: 'MODEM', label: 'Modem / ADSL / Cable', hasConfig: 'networkConfig' }
+  ],
+  'Power': [
+    { key: 'UPS', label: 'Uninterruptible Power Supply (UPS)', hasConfig: 'powerConfig' },
+    { key: 'BATTERY_BANK', label: 'Battery Bank / Inverter', hasConfig: 'powerConfig' },
+    { key: 'STABILIZER', label: 'Voltage Stabilizer / AVR', hasConfig: 'powerConfig' },
+    { key: 'PDU', label: 'Power Distribution Unit (PDU)', hasConfig: 'powerConfig' }
+  ],
+  'Printing': [
+    { key: 'PRINTER', label: 'Printer (Laser / Inkjet / Dot Matrix)', hasConfig: 'peripheralConfig' },
+    { key: 'SCANNER', label: 'Scanner (Sheetfed / Flatbed)', hasConfig: 'peripheralConfig' },
+    { key: 'MULTIFUNCTION_PRINTER', label: 'Multifunction / All-in-One Printer', hasConfig: 'peripheralConfig' },
+    { key: 'PLOTTER', label: 'Plotter / Wide Format Printer', hasConfig: 'peripheralConfig' }
+  ],
+  'Communication': [
+    { key: 'INTERCOM', label: 'Intercom System / EPABX Terminal', hasConfig: 'specifications' },
+    { key: 'TELEPHONE', label: 'Telephone / IP Phone', hasConfig: 'specifications' },
+    { key: 'COMMUNICATION_DEVICE', label: 'Communication Device (Generic)', hasConfig: 'specifications' },
+    { key: 'RADIO', label: 'Radio / VHF Equipment', hasConfig: 'specifications' }
+  ],
+  'Surveillance': [
+    { key: 'CCTV', label: 'CCTV Camera', hasConfig: 'specifications' },
+    { key: 'DVR_NVR', label: 'DVR / NVR Recorder', hasConfig: 'specifications' },
+    { key: 'ACCESS_CONTROL', label: 'Access Control System', hasConfig: 'specifications' },
+    { key: 'BIOMETRIC', label: 'Biometric Attendance Terminal', hasConfig: 'specifications' }
+  ],
+  'Office Equipment': [
+    { key: 'PROJECTOR', label: 'Projector / Display Presentation Unit', hasConfig: 'specifications' },
+    { key: 'PERIPHERAL', label: 'Peripheral Device', hasConfig: 'peripheralConfig' },
+    { key: 'SHREDDER', label: 'Document Shredder', hasConfig: 'specifications' },
+    { key: 'LAMINATOR', label: 'Laminator', hasConfig: 'specifications' },
+    { key: 'BINDING', label: 'Binding Machine', hasConfig: 'specifications' }
+  ],
+  'Furniture': [
+    { key: 'OTHER', label: 'Furniture / Fixture Item', hasConfig: 'specifications' }
+  ],
+  'Other': [
+    { key: 'OTHER', label: 'Other Operational Equipment', hasConfig: 'specifications' }
+  ]
+};
+
+/**
+ * All asset types flattened with deduplication (backward compatible full list)
+ */
+const ALL_ASSET_TYPES = (() => {
+  const seen = new Set();
+  const types = [];
+  for (const typeList of Object.values(CATEGORY_ASSET_TYPE_MAP)) {
+    for (const t of typeList) {
+      if (!seen.has(t.key)) {
+        seen.add(t.key);
+        types.push(t);
+      }
+    }
+  }
+  return types;
+})();
+
 export const getDepartments = async (req, res, next) => {
   try {
     const departments = await departmentRepository.findAll();
@@ -79,22 +157,51 @@ export const getConditions = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/v1/master/asset-types[?category=IT Equipment]
+ * Returns full list or category-filtered list of asset types
+ */
 export const getAssetTypes = async (req, res, next) => {
   try {
-    const types = [
-      { key: 'DESKTOP', label: 'Desktop Workstation / PC', hasConfig: 'computerConfig' },
-      { key: 'LAPTOP', label: 'Laptop / Notebook', hasConfig: 'computerConfig' },
-      { key: 'PRINTER', label: 'Printer (MFP / Laser / Dot Matrix)', hasConfig: 'peripheralConfig' },
-      { key: 'SCANNER', label: 'Scanner (Sheetfed / Flatbed)', hasConfig: 'peripheralConfig' },
-      { key: 'UPS', label: 'Uninterruptible Power Supply (UPS)', hasConfig: 'powerConfig' },
-      { key: 'MONITOR', label: 'Display Screen / Monitor', hasConfig: 'displayConfig' },
-      { key: 'SERVER', label: 'Enterprise Server', hasConfig: 'computerConfig' },
-      { key: 'NETWORK', label: 'Network Equipment (Switch / Router / AP)', hasConfig: 'networkConfig' },
-      { key: 'STORAGE', label: 'Storage Subsystem (NAS / SAN / DAS)', hasConfig: 'computerConfig' },
-      { key: 'PERIPHERAL', label: 'Peripheral Device', hasConfig: 'peripheralConfig' },
-      { key: 'OTHER', label: 'Other Operational Equipment', hasConfig: 'specifications' }
-    ];
-    return sendSuccess(res, types, 'Asset type definitions retrieved successfully');
+    const { category } = req.query;
+
+    if (category) {
+      // Case-insensitive category lookup
+      const normalizedKey = Object.keys(CATEGORY_ASSET_TYPE_MAP).find(
+        k => k.toLowerCase() === category.toLowerCase()
+      );
+
+      if (normalizedKey) {
+        return sendSuccess(
+          res,
+          CATEGORY_ASSET_TYPE_MAP[normalizedKey],
+          `Asset types for category '${normalizedKey}' retrieved successfully`
+        );
+      }
+
+      // Unknown category — return full list as graceful fallback
+      return sendSuccess(res, ALL_ASSET_TYPES, 'Asset type definitions retrieved successfully (full list fallback)');
+    }
+
+    // No category filter — return full de-duplicated list (backward compatible)
+    return sendSuccess(res, ALL_ASSET_TYPES, 'Asset type definitions retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/master/category-asset-type-map
+ * Returns the complete canonical Category → Asset Type mapping object
+ */
+export const getCategoryAssetTypeMap = async (req, res, next) => {
+  try {
+    // Also expose the flat category list for UI dropdowns
+    const categories = Object.keys(CATEGORY_ASSET_TYPE_MAP).map(name => ({
+      name,
+      count: CATEGORY_ASSET_TYPE_MAP[name].length
+    }));
+    return sendSuccess(res, { map: CATEGORY_ASSET_TYPE_MAP, categories }, 'Category to Asset Type mapping retrieved successfully');
   } catch (error) {
     next(error);
   }

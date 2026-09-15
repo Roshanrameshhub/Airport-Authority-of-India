@@ -40,6 +40,22 @@ const employeeSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  employeeType: {
+    type: String,
+    enum: ['AAI', 'Contract'],
+    default: 'AAI',
+    trim: true
+  },
+  employmentCategory: {
+    type: String,
+    trim: true,
+    default: 'Regular'
+  },
+  contractorName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true
