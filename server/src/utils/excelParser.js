@@ -582,6 +582,26 @@ export const extractSheetRows = (sheet, {
       remarks: '',
       category: '',
       assetId: '',
+      oldAssetId: '',
+      assetType: '',
+      supplier: '',
+      supplyOrderNumber: '',
+      purchaseDate: null,
+      purchaseCost: '',
+      location: '',
+      room: '',
+      intercom: '',
+      ipAddress: '',
+      macAddress: '',
+      amcApplicable: '',
+      amcContractId: '',
+      processor: '',
+      ramSizeGb: '',
+      storageCapacityGb: '',
+      storageType: '',
+      hostname: '',
+      screenSizeInches: '',
+      capacityVa: '',
       supportingDetails: [],
       customFields: {}
     };
@@ -598,11 +618,15 @@ export const extractSheetRows = (sheet, {
           rowObj.supportingDetails.push(`${headerName}: ${valStr}`);
         }
       } else if (rowObj.hasOwnProperty(canonicalKey) && canonicalKey !== 'customFields' && canonicalKey !== '_source' && canonicalKey !== '_sheetMeta' && canonicalKey !== 'supportingDetails') {
-        if (canonicalKey === 'installDate' || canonicalKey === 'warrantyEndDate') {
+        if (canonicalKey === 'installDate' || canonicalKey === 'warrantyEndDate' || canonicalKey === 'purchaseDate') {
           rowObj[canonicalKey] = normalizeExcelDate(cellValue);
         } else {
           const valStr = String(cellValue !== undefined && cellValue !== null ? cellValue : '').trim();
           rowObj[canonicalKey] = valStr;
+          if ((canonicalKey === 'ipAddress' || canonicalKey === 'macAddress') && valStr) {
+            const headerName = rawRows[headerRowIndex]?.[colIndex] || canonicalKey;
+            rowObj.supportingDetails.push(`${headerName}: ${valStr}`);
+          }
         }
       } else {
         // Custom configurable field

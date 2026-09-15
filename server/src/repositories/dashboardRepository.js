@@ -305,5 +305,80 @@ export const dashboardRepository = {
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return events.slice(0, Number(limit));
+  },
+
+  /**
+   * Aggregate distribution across all operational statuses
+   */
+  getStatusDistribution: async () => {
+    const assetsRes = await assetRepository.find({ limit: 10000 });
+    const assets = assetsRes.items || [];
+    const total = assets.length;
+
+    const statusCounts = {};
+    for (const a of assets) {
+      const st = (a.status || 'AVAILABLE').toUpperCase();
+      statusCounts[st] = (statusCounts[st] || 0) + 1;
+    }
+
+    return Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count,
+      percentage: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0
+    })).sort((a, b) => b.count - a.count);
+  },
+
+  /**
+   * Aggregate procurement distribution across vendors from asset.pdf
+   */
+  getVendorDistribution: async () => {
+    const assetsRes = await assetRepository.find({ limit: 10000 });
+    const assets = assetsRes.items || [];
+    const total = assets.length;
+
+    const vendorMap = new Map();
+    for (const a of assets) {
+      const vName = a.supplier || a.vendor || 'Unknown Supplier';
+      if (!vendorMap.has(vName)) {
+        vendorMap.set(vName, {
+          vendorName: vName,
+          assetCount: 0,
+          totalCostINR: 0
+        });
+      }
+      const entry = vendorMap.get(vName);
+      entry.assetCount++;
+      if (a.purchaseCost && typeof a.purchaseCost === 'number') {
+        entry.totalCostINR += a.purchaseCost;
+      }
+    }
+
+    return Array.from(vendorMap.values())
+      .map(entry => ({
+        ...entry,
+        percentage: total > 0 ? Number(((entry.assetCount / total) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.assetCount - a.assetCount);
+  },
+
+  /**
+   * Aggregate distribution across rationalized asset types
+   */
+  getAssetTypeDistribution: async () => {
+    const assetsRes = await assetRepository.find({ limit: 10000 });
+    const assets = assetsRes.items || [];
+    const total = assets.length;
+
+    const typeMap = new Map();
+    for (const a of assets) {
+      const type = (a.assetType || 'OTHER').toUpperCase();
+      typeMap.set(type, (typeMap.get(type) || 0) + 1);
+    }
+
+    return Array.from(typeMap.entries()).map(([assetType, count]) => ({
+      assetType,
+      count,
+      percentage: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0
+    })).sort((a, b) => b.count - a.count);
   }
 };

@@ -8,8 +8,10 @@ import {
   parseExcelBuffer,
   generateSampleTemplate,
   isWorkbookEncrypted,
-  decryptWorkbookBuffer
+  decryptWorkbookBuffer,
+  normalizeExcelDate
 } from '../utils/excelParser.js';
+import { deriveAssetType } from '../../scripts/migrate_phase11.js';
 import {
   reconcileAndCleanRows,
   normalizeSerialNumber
@@ -674,30 +676,70 @@ export const importService = {
         }
 
         const assetId = row.assetId || generateAssetId(row.category, 9000 + i + 1);
+        const derivedType = row.assetType || deriveAssetType(row.category, row.assetName);
 
         const assetData = {
           assetId,
           assetName: row.assetName,
           category: row.category,
+          assetType: derivedType,
+          oldAssetId: row.oldAssetId || '',
           make: row.make,
           model: row.model,
           serialNumber: cleanSerial,
-          installDate: row.installDate,
-          warrantyStartDate: row.installDate,
-          warrantyEndDate: row.warrantyEndDate,
+          supplier: row.supplier || row.vendor || '',
+          supplyOrderNumber: row.supplyOrderNumber || '',
+          purchaseDate: row.purchaseDate ? normalizeExcelDate(row.purchaseDate) : (row.installDate ? normalizeExcelDate(row.installDate) : null),
+          purchaseCost: row.purchaseCost ? Number(String(row.purchaseCost).replace(/[^0-9.]/g, '')) : null,
+          installDate: row.installDate ? normalizeExcelDate(row.installDate) : new Date(),
+          warrantyStartDate: row.installDate ? normalizeExcelDate(row.installDate) : new Date(),
+          warrantyEndDate: row.warrantyEndDate ? normalizeExcelDate(row.warrantyEndDate) : new Date(),
+          amcApplicable: Boolean(row.amcApplicable === true || row.amcApplicable === 'true' || (row.amcContractId && row.amcContractId !== 'N/A')),
+          amcContractId: row.amcContractId || '',
           operatingSystem: row.operatingSystem || 'Windows 11 Pro',
           osVersion: row.osVersion || '',
           department: row.department,
+          location: row.location || 'Chennai Airport',
           floor: row.floor,
+          room: row.room || '',
+          intercom: row.intercom || '',
+          ipAddress: row.ipAddress || '',
+          macAddress: row.macAddress || '',
           remarks: row.remarks ? `${row.remarks} [Multi-Excel Ingested]` : 'Ingested via Clean Master Data Pipeline',
           status: 'AVAILABLE',
-          condition: 'GOOD',
+          condition: row.condition || 'GOOD',
           currentEmployeeId: null,
           currentEmployeeName: '',
           currentDesignation: '',
           currentAssignmentDate: null,
           customFields: row.customFields || {}
         };
+
+        if (row.processor || row.ramSizeGb || row.storageCapacityGb || row.hostname || ['DESKTOP', 'LAPTOP', 'SERVER', 'WORKSTATION'].includes(derivedType)) {
+          assetData.computerConfig = {
+            processor: row.processor || '',
+            ramSizeGb: row.ramSizeGb ? Number(String(row.ramSizeGb).replace(/[^0-9]/g, '')) : 16,
+            storageCapacityGb: row.storageCapacityGb ? Number(String(row.storageCapacityGb).replace(/[^0-9]/g, '')) : 512,
+            storageType: row.storageType || 'SSD',
+            hostname: row.hostname || ''
+          };
+        }
+
+        if (row.screenSizeInches || ['MONITOR', 'DISPLAY'].includes(derivedType)) {
+          assetData.displayConfig = {
+            screenSizeInches: row.screenSizeInches ? Number(String(row.screenSizeInches).replace(/[^0-9.]/g, '')) : 24,
+            resolution: row.resolution || '1920x1080',
+            displayType: 'IPS'
+          };
+        }
+
+        if (row.capacityVa || ['UPS', 'POWER'].includes(derivedType)) {
+          assetData.powerConfig = {
+            capacityVa: row.capacityVa ? Number(String(row.capacityVa).replace(/[^0-9]/g, '')) : 1000,
+            backupTimeMinutes: 15,
+            topology: 'Line-Interactive'
+          };
+        }
 
         const createdAsset = await assetRepository.create(assetData);
         importedAssets.push(createdAsset);

@@ -16,6 +16,11 @@ process.on('uncaughtException', (err) => {
 
 const startServer = async () => {
   try {
+    // 0. Security Verification: Validate mandatory cryptographic secrets
+    if (!process.env.JWT_SECRET || !process.env.JWT_SECRET.trim()) {
+      throw new Error('CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing! Server startup halted.');
+    }
+
     // 1. Establish Database Connection (MongoDB Atlas is the ONLY database for dev & prod)
     logger.info('Initializing connection to MongoDB Atlas database...');
     await connectDB();

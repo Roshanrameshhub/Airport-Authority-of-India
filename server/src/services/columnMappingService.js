@@ -41,13 +41,13 @@ export const CANONICAL_FIELDS = {
   },
   floor: {
     key: 'floor',
-    label: 'Floor / Location',
-    description: 'Physical building, floor or room location',
+    label: 'Floor / Level',
+    description: 'Physical building level or floor location',
     required: true,
     aliases: [
-      'floor', 'location', 'floor / location', 'office location',
-      'wing', 'room', 'block', 'cabin', 'physical location',
-      'room no', 'building / floor'
+      'floor', 'floor / location', 'office location',
+      'wing', 'block', 'physical location',
+      'building / floor', 'level', 'floor level'
     ],
     ambiguousTerms: ['place']
   },
@@ -171,16 +171,222 @@ export const CANONICAL_FIELDS = {
     ],
     ambiguousTerms: ['comment', 'note']
   },
+  oldAssetId: {
+    key: 'oldAssetId',
+    label: 'Old / Legacy Tag',
+    description: 'Previous AAI fixed asset register number or legacy tag',
+    required: false,
+    aliases: [
+      'old asset id', 'old asset tag', 'previous asset id', 'old tag',
+      'legacy asset id', 'legacy tag', 'old tag no', 'old code', 'old asset no'
+    ],
+    ambiguousTerms: []
+  },
+  assetType: {
+    key: 'assetType',
+    label: 'Asset Type',
+    description: 'Standardized operational equipment type (DESKTOP, LAPTOP, etc.)',
+    required: false,
+    aliases: [
+      'asset type', 'equipment type', 'type of asset', 'hardware type', 'item type'
+    ],
+    ambiguousTerms: ['type']
+  },
+  supplier: {
+    key: 'supplier',
+    label: 'Supplier / Vendor',
+    description: 'Contracted vendor or procurement agency',
+    required: false,
+    aliases: [
+      'supplier', 'supplier name', 'vendor name', 'party name',
+      'dealer', 'purchased from', 'source vendor', 'source supplier'
+    ],
+    ambiguousTerms: []
+  },
+  supplyOrderNumber: {
+    key: 'supplyOrderNumber',
+    label: 'Supply Order / PO No',
+    description: 'Purchase order, GeM contract or supply agreement reference',
+    required: false,
+    aliases: [
+      'supply order number', 'supply order no', 'so no', 'po number',
+      'po no', 'purchase order', 'order no', 'purchase order no',
+      'gem order no', 'gem contract no', 'so number'
+    ],
+    ambiguousTerms: []
+  },
+  purchaseDate: {
+    key: 'purchaseDate',
+    label: 'Purchase Date',
+    description: 'Official invoice or purchase agreement date',
+    required: false,
+    aliases: [
+      'purchase date', 'po date', 'order date', 'procurement date', 'date of purchase'
+    ],
+    ambiguousTerms: []
+  },
+  purchaseCost: {
+    key: 'purchaseCost',
+    label: 'Purchase Cost (INR)',
+    description: 'Procurement acquisition price in Indian Rupees',
+    required: false,
+    aliases: [
+      'purchase cost', 'cost', 'basic cost', 'rate', 'price',
+      'purchase price', 'value', 'amount', 'unit price', 'procurement cost'
+    ],
+    ambiguousTerms: ['cost', 'price', 'amount']
+  },
+  location: {
+    key: 'location',
+    label: 'Airport / Location',
+    description: 'Airport facility or institutional campus',
+    required: false,
+    aliases: [
+      'facility', 'airport', 'airport location', 'station', 'airport name', 'campus'
+    ],
+    ambiguousTerms: []
+  },
+  room: {
+    key: 'room',
+    label: 'Room / Office',
+    description: 'Specific room, office, cubicle or bay',
+    required: false,
+    aliases: [
+      'room', 'room no', 'room number', 'cubicle', 'bay', 'cabin', 'chamber', 'office room', 'room / bay'
+    ],
+    ambiguousTerms: []
+  },
+  intercom: {
+    key: 'intercom',
+    label: 'Intercom / Ext',
+    description: 'AAI internal intercom or extension number',
+    required: false,
+    aliases: [
+      'intercom', 'intercom no', 'intercom number', 'ext', 'extension', 'ext no', 'extension no', 'phone ext'
+    ],
+    ambiguousTerms: ['ext']
+  },
+  ipAddress: {
+    key: 'ipAddress',
+    label: 'IP Address',
+    description: 'Assigned IPv4/IPv6 network host address',
+    required: false,
+    aliases: [
+      'ip address', 'ip', 'ip addr', 'host ip', 'static ip',
+      'network ip', 'ipv4', 'terminal ip', 'device ip'
+    ],
+    ambiguousTerms: []
+  },
+  macAddress: {
+    key: 'macAddress',
+    label: 'MAC Address',
+    description: 'Hardware NIC physical address',
+    required: false,
+    aliases: [
+      'mac address', 'mac', 'mac addr', 'physical address',
+      'ethernet address', 'lan mac', 'ethernet mac'
+    ],
+    ambiguousTerms: []
+  },
+  amcApplicable: {
+    key: 'amcApplicable',
+    label: 'AMC Applicable',
+    description: 'Whether asset is covered under maintenance contract',
+    required: false,
+    aliases: [
+      'amc applicable', 'under amc', 'amc status', 'amc covered', 'amc warranty'
+    ],
+    ambiguousTerms: []
+  },
+  amcContractId: {
+    key: 'amcContractId',
+    label: 'AMC Contract ID',
+    description: 'Contract SLA reference or agreement identifier',
+    required: false,
+    aliases: [
+      'amc contract id', 'amc contract no', 'amc agreement no',
+      'amc ref', 'amc reference', 'sla id'
+    ],
+    ambiguousTerms: []
+  },
+  processor: {
+    key: 'processor',
+    label: 'Processor / CPU',
+    description: 'CPU specification (e.g. Intel Core i7-12700)',
+    required: false,
+    aliases: [
+      'processor', 'cpu', 'cpu details', 'chip', 'processor model', 'processor speed'
+    ],
+    ambiguousTerms: []
+  },
+  ramSizeGb: {
+    key: 'ramSizeGb',
+    label: 'RAM (GB)',
+    description: 'System memory capacity in Gigabytes',
+    required: false,
+    aliases: [
+      'ram', 'ram size', 'ram gb', 'memory', 'ram (gb)', 'ram capacity', 'memory gb', 'installed ram'
+    ],
+    ambiguousTerms: []
+  },
+  storageCapacityGb: {
+    key: 'storageCapacityGb',
+    label: 'Storage (GB)',
+    description: 'Storage capacity in Gigabytes',
+    required: false,
+    aliases: [
+      'storage', 'storage capacity', 'hdd capacity', 'ssd capacity',
+      'hard disk', 'storage gb', 'disk size', 'hdd size', 'ssd size', 'storage (gb)'
+    ],
+    ambiguousTerms: []
+  },
+  storageType: {
+    key: 'storageType',
+    label: 'Storage Type',
+    description: 'Drive type (SSD, NVMe, HDD, Hybrid)',
+    required: false,
+    aliases: [
+      'storage type', 'disk type', 'drive type', 'ssd/hdd', 'hdd/ssd'
+    ],
+    ambiguousTerms: []
+  },
+  hostname: {
+    key: 'hostname',
+    label: 'Hostname',
+    description: 'System NetBIOS or hostname identifier',
+    required: false,
+    aliases: [
+      'hostname', 'host name', 'computer name', 'machine name', 'netbios name'
+    ],
+    ambiguousTerms: []
+  },
+  screenSizeInches: {
+    key: 'screenSizeInches',
+    label: 'Screen Size (Inches)',
+    description: 'Monitor display diagonal dimension',
+    required: false,
+    aliases: [
+      'screen size', 'display size', 'monitor size', 'screen size (inches)', 'size in inches'
+    ],
+    ambiguousTerms: []
+  },
+  capacityVa: {
+    key: 'capacityVa',
+    label: 'UPS Capacity (VA)',
+    description: 'UPS power rating in Volt-Amperes',
+    required: false,
+    aliases: [
+      'capacity va', 'va rating', 'ups capacity', 'capacity (va)', 'kva', 'va'
+    ],
+    ambiguousTerms: []
+  },
   supportingInfo: {
     key: 'supportingInfo',
     label: 'Supporting Info (Append to Remarks)',
-    description: 'Hardware specifications, CPU/RAM/Storage, or notes to append to Remarks',
+    description: 'General auxiliary specifications or notes to append to Remarks',
     required: false,
     aliases: [
-      'processor', 'cpu', 'ram', 'storage', 'hdd', 'ssd', 'memory', 'disk', 'specs',
-      'specifications', 'cpu details', 'hardware details', 'config', 'hardware specs',
-      'ip address', 'ip', 'ip addr', 'mac address', 'mac', 'mac addr', 'ip / mac', 'ip & mac',
-      'nw ptr ip', 'network ip'
+      'specs', 'specifications', 'hardware details', 'config', 'hardware specs'
     ],
     ambiguousTerms: []
   },

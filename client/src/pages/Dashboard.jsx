@@ -33,12 +33,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [distTab, setDistTab] = useState('category'); // 'category' | 'department'
+  const [distTab, setDistTab] = useState('category'); // 'category' | 'department' | 'type' | 'vendor'
   const [showSpecs, setShowSpecs] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [categoryDist, setCategoryDist] = useState([]);
   const [deptDist, setDeptDist] = useState([]);
+  const [typeDist, setTypeDist] = useState([]);
+  const [vendorDist, setVendorDist] = useState([]);
   const [warrantyAlerts, setWarrantyAlerts] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [amcContracts, setAmcContracts] = useState([]);
@@ -51,19 +53,23 @@ export default function Dashboard() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [statsRes, catRes, deptRes, alertsRes, actRes, amcRes] = await Promise.all([
+      const [statsRes, catRes, deptRes, typeRes, vendRes, alertsRes, actRes, amcRes] = await Promise.all([
         fetch('/api/v1/dashboard/stats', { headers }),
         fetch('/api/v1/dashboard/category-distribution', { headers }),
         fetch('/api/v1/dashboard/department-distribution', { headers }),
+        fetch('/api/v1/dashboard/type-distribution', { headers }),
+        fetch('/api/v1/dashboard/vendor-distribution', { headers }),
         fetch('/api/v1/dashboard/warranty-alerts', { headers }),
         fetch('/api/v1/dashboard/recent-activity?limit=6', { headers }),
         fetch('/api/v1/amc', { headers })
       ]);
 
-      const [statsData, catData, deptData, alertsData, actData, amcData] = await Promise.all([
+      const [statsData, catData, deptData, typeData, vendData, alertsData, actData, amcData] = await Promise.all([
         statsRes.json(),
         catRes.json(),
         deptRes.json(),
+        typeRes.json(),
+        vendRes.json(),
         alertsRes.json(),
         actRes.json(),
         amcRes.json()
@@ -72,6 +78,8 @@ export default function Dashboard() {
       if (statsData.success) setStats(statsData.data);
       if (catData.success) setCategoryDist(catData.data);
       if (deptData.success) setDeptDist(deptData.data);
+      if (typeData.success) setTypeDist(typeData.data);
+      if (vendData.success) setVendorDist(vendData.data);
       if (alertsData.success) setWarrantyAlerts(alertsData.data);
       if (actData.success) setRecentActivities(actData.data);
       if (amcData.success) setAmcContracts(amcData.data);
@@ -88,8 +96,22 @@ export default function Dashboard() {
   }, [token]);
 
   const renderDistributionCard = () => {
-    const activeData = distTab === 'category' ? categoryDist : deptDist;
-    const isDept = distTab === 'department';
+    let activeData = [];
+    let scopeTitle = 'Equipment Scope';
+
+    if (distTab === 'category') {
+      activeData = categoryDist;
+      scopeTitle = 'Category Scope';
+    } else if (distTab === 'department') {
+      activeData = deptDist;
+      scopeTitle = 'Department Scope';
+    } else if (distTab === 'type') {
+      activeData = typeDist;
+      scopeTitle = 'Asset Type Scope';
+    } else if (distTab === 'vendor') {
+      activeData = vendorDist;
+      scopeTitle = 'Supplier Scope';
+    }
 
     return (
       <div className="card" style={{ flex: 1.2 }}>
@@ -97,43 +119,35 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Layers size={15} color="var(--color-brand-600)" />
             <h2 className="card-title" style={{ fontSize: '0.85rem' }}>
-              {isDept ? 'Department Scope' : 'Equipment Scope'}
+              {scopeTitle}
             </h2>
           </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <div style={{ display: 'inline-flex', background: 'var(--color-bg-subtle)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
-              <button
-                type="button"
-                onClick={() => setDistTab('category')}
-                style={{
-                  border: 'none',
-                  background: !isDept ? 'var(--color-brand-600)' : 'transparent',
-                  color: !isDept ? '#ffffff' : 'var(--color-text-muted)',
-                  fontWeight: !isDept ? 700 : 500,
-                  fontSize: '0.65rem',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  cursor: 'pointer'
-                }}
-              >
-                Category
-              </button>
-              <button
-                type="button"
-                onClick={() => setDistTab('department')}
-                style={{
-                  border: 'none',
-                  background: isDept ? 'var(--color-brand-600)' : 'transparent',
-                  color: isDept ? '#ffffff' : 'var(--color-text-muted)',
-                  fontWeight: isDept ? 700 : 500,
-                  fontSize: '0.65rem',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  cursor: 'pointer'
-                }}
-              >
-                Department
-              </button>
+              {[
+                { id: 'category', label: 'Category' },
+                { id: 'type', label: 'Type' },
+                { id: 'department', label: 'Dept' },
+                { id: 'vendor', label: 'Vendor' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setDistTab(tab.id)}
+                  style={{
+                    border: 'none',
+                    background: distTab === tab.id ? 'var(--color-brand-600)' : 'transparent',
+                    color: distTab === tab.id ? '#ffffff' : 'var(--color-text-muted)',
+                    fontWeight: distTab === tab.id ? 700 : 500,
+                    fontSize: '0.65rem',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
             <Link
               to="/assets"
@@ -148,11 +162,16 @@ export default function Dashboard() {
         <div className="dashboard-scroll-panel" style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
           {activeData.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '16px', color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>
-              {isDept ? 'No department metrics available' : 'Loading category metrics...'}
+              Loading {distTab} metrics...
             </div>
           ) : (
             activeData.slice(0, 6).map((item, idx) => {
-              const label = item.category || item.department || item.name;
+              const label = item.category || item.assetType || item.vendorName || item.department || item.name;
+              const countVal = item.count || item.assetCount || 0;
+              const subText = item.totalCostINR 
+                ? `₹${Number(item.totalCostINR).toLocaleString('en-IN')}`
+                : (item.assigned !== undefined ? `${item.assigned} assigned` : `${item.percentage}%`);
+
               return (
                 <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
@@ -160,8 +179,8 @@ export default function Dashboard() {
                       {label}
                     </span>
                     <span style={{ color: 'var(--color-text-muted)' }}>
-                      <strong>{item.count}</strong> ({item.percentage}%) &bull;{' '}
-                      <span style={{ color: 'var(--color-brand-600)', fontWeight: 600 }}>{item.assigned} assigned</span>
+                      <strong>{countVal}</strong> ({item.percentage}%) &bull;{' '}
+                      <span style={{ color: 'var(--color-brand-600)', fontWeight: 600 }}>{subText}</span>
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '5px', background: 'var(--color-bg-subtle)', borderRadius: '999px', overflow: 'hidden' }}>

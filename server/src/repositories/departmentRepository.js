@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Department from '../models/Department.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryDepartments = new Map();
 
@@ -50,7 +51,7 @@ export const departmentRepository = {
     if (mongoose.connection.readyState === 1) {
       return Department.findOne({
         $or: [
-          { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') } },
           { code: code.toUpperCase() }
         ]
       });

@@ -10,7 +10,9 @@
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seed_demo.js",
     "verify:demo": "node scripts/verify_demo.js",
-    "test": "node --test test/foundation.test.js test/auth.test.js test/employee.test.js test/asset.test.js test/transfer.test.js test/import.test.js test/multi_import.test.js test/export.test.js test/complaint.test.js test/dashboard.test.js test/e2e.test.js test/tag_amc.test.js test/audit_fixes.test.js test/enterprise_refinement.test.js test/enterprise_documents.test.js test/real_world_workbook.test.js test/password_excel.test.js"
+    "migrate": "node scripts/migrate_phase11.js",
+    "migrate:dry": "node scripts/migrate_phase11.js --dry-run --verbose",
+    "test": "node --test test/foundation.test.js test/auth.test.js test/employee.test.js test/asset.test.js test/phase2_asset_model.test.js test/phase3_type_schemas.test.js test/phase4_master_data.test.js test/phase5_network_software_amc.test.js test/phase6_relationships.test.js test/phase7_transaction_custody_chain.test.js test/phase8_search_reporting.test.js test/phase11_migration.test.js test/phase12_excel_v2_ingestion.test.js test/phase13_rbac_governance.test.js test/phase16_production_hardening.test.js test/transfer.test.js test/import.test.js test/multi_import.test.js test/export.test.js test/complaint.test.js test/dashboard.test.js test/e2e.test.js test/tag_amc.test.js test/audit_fixes.test.js test/enterprise_refinement.test.js test/enterprise_documents.test.js test/real_world_workbook.test.js test/password_excel.test.js"
   },
   "keywords": [
     "aai",

@@ -2,7 +2,10 @@ import mongoose from 'mongoose';
 import AssetAssignment from '../models/AssetAssignment.js';
 import { assetRepository } from './assetRepository.js';
 import { employeeRepository } from './employeeRepository.js';
-import { generateAssignmentId } from '../utils/idGenerator.js';
+import { relationshipRepository } from './relationshipRepository.js';
+import { generateAssignmentId, generateAssignmentIdAsync } from '../utils/idGenerator.js';
+import { escapeRegex } from '../utils/regexHelper.js';
+import { logger } from '../utils/logger.js';
 
 const memoryAssignments = new Map();
 
@@ -67,95 +70,118 @@ const seedAssignments = () => {
         transferReason: 'Official mobility equipment for CNS technical monitoring',
         assignedBy: 'admin',
         returnedBy: null,
-        remarks: 'Pre-loaded with CNS monitoring tools'
+        remarks: 'Field laptop assignment'
       },
       {
         _id: '66d500000000000000000004',
         assignmentId: 'AAI-ASG-2024-00004',
-        assetId: 'AAI-REG-LPT-2024-0003',
-        assetName: 'HP EliteBook 840 G8',
-        employeeId: 'AAI-10999',
-        employeeName: 'Kavitha K',
-        department: 'Finance & Accounts',
-        floor: '1st Floor, Main Admin Wing',
-        designation: 'Senior Accountant',
-        assignedDate: new Date('2024-02-05T09:30:00Z'),
+        assetId: 'AAI-REG-PC-2024-0003',
+        assetName: 'HP ProDesk 600 G6 Tower Workstation',
+        employeeId: 'AAI-10950',
+        employeeName: 'Amit Sharma',
+        department: 'Air Traffic Management',
+        floor: '3rd Floor, ATC Tower',
+        designation: 'Junior Executive (ATC)',
+        assignedDate: new Date('2024-01-20T09:00:00Z'),
         returnedDate: null,
         status: 'ACTIVE',
-        conditionAtAssignment: 'EXCELLENT',
+        conditionAtAssignment: 'GOOD',
         conditionAtReturn: null,
-        transferReason: 'ERP billing & accounts workstation',
+        transferReason: 'Tower replacement terminal allocation',
         assignedBy: 'admin',
         returnedBy: null,
-        remarks: 'SAP ERP client installed'
+        remarks: 'Replacement allocation for ATC workstation'
+      },
+      {
+        _id: '66d500000000000000000005',
+        assignmentId: 'AAI-ASG-2023-00005',
+        assetId: 'AAI-REG-PRT-2023-0004',
+        assetName: 'HP LaserJet Pro MFP M428fdw',
+        employeeId: 'AAI-10842',
+        employeeName: 'Roshan R',
+        department: 'Communication, Navigation & Surveillance',
+        floor: '2nd Floor, Technical Block',
+        designation: 'Assistant Manager (CNS)',
+        assignedDate: new Date('2023-05-10T10:00:00Z'),
+        returnedDate: null,
+        status: 'ACTIVE',
+        conditionAtAssignment: 'GOOD',
+        conditionAtReturn: null,
+        transferReason: 'Network printer assignment for CNS Technical Section',
+        assignedBy: 'admin',
+        returnedBy: null,
+        remarks: 'Shared department network multifunction printer'
+      },
+      {
+        _id: '66d500000000000000000006',
+        assignmentId: 'AAI-ASG-2024-00006',
+        assetId: 'AAI-REG-UPS-2024-0009',
+        assetName: 'APC Smart-UPS 1500VA LCD',
+        employeeId: 'AAI-10950',
+        employeeName: 'Amit Sharma',
+        department: 'Air Traffic Management',
+        floor: '3rd Floor, ATC Tower',
+        designation: 'Junior Executive (ATC)',
+        assignedDate: new Date('2024-02-01T09:00:00Z'),
+        returnedDate: null,
+        status: 'ACTIVE',
+        conditionAtAssignment: 'GOOD',
+        conditionAtReturn: null,
+        transferReason: 'Dedicated power backup for ATC tower workstation',
+        assignedBy: 'admin',
+        returnedBy: null,
+        remarks: 'Dedicated UPS attached to tower workstation'
       }
     ];
 
-    list.forEach(item => {
-      memoryAssignments.set(item.assignmentId, item);
-    });
+    list.forEach(item => memoryAssignments.set(item.assignmentId, item));
   }
 };
 
 seedAssignments();
 
+/**
+ * Executes a callback within a MongoDB multi-document transaction with graceful fallback
+ */
+const withTransaction = async (operation) => {
+  if (mongoose.connection.readyState !== 1) {
+    return operation(null);
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    try {
+      await session.withTransaction(async () => {
+        result = await operation(session);
+      });
+      return result;
+    } catch (txnError) {
+      if (txnError.message && (
+        txnError.message.includes('replica set') ||
+        txnError.message.includes('Transaction numbers') ||
+        txnError.message.includes('standalone')
+      )) {
+        logger.warn(`Transactions not supported on current MongoDB topology: ${txnError.message}. Executing directly.`);
+        return operation(null);
+      }
+      throw txnError;
+    }
+  } finally {
+    await session.endSession();
+  }
+};
+
 export const assignmentRepository = {
-  findCurrentAssignment: async (assetId) => {
-    const aid = assetId.trim().toUpperCase();
-    if (mongoose.connection.readyState === 1) {
-      return AssetAssignment.findOne({ assetId: aid, status: 'ACTIVE' });
-    }
-    for (const a of memoryAssignments.values()) {
-      if (a.assetId.toUpperCase() === aid && a.status === 'ACTIVE') {
-        return a;
-      }
-    }
-    return null;
-  },
-
-  findHistoryByAsset: async (assetId) => {
-    const aid = assetId.trim().toUpperCase();
-    if (mongoose.connection.readyState === 1) {
-      return AssetAssignment.find({ assetId: aid }).sort({ assignedDate: -1 });
-    }
-    const history = [];
-    for (const a of memoryAssignments.values()) {
-      if (a.assetId.toUpperCase() === aid) {
-        history.push(a);
-      }
-    }
-    return history.sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
-  },
-
-  findByEmployee: async (employeeId, options = {}) => {
-    const eid = employeeId.trim().toUpperCase();
-    const { status } = options;
-
-    if (mongoose.connection.readyState === 1) {
-      const query = { employeeId: eid };
-      if (status) query.status = status;
-      return AssetAssignment.find(query).sort({ assignedDate: -1 });
-    }
-
-    const results = [];
-    for (const a of memoryAssignments.values()) {
-      if (a.employeeId.toUpperCase() === eid) {
-        if (!status || a.status === status) {
-          results.push(a);
-        }
-      }
-    }
-    return results.sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
-  },
-
   findPaginated: async (options = {}) => {
+    seedAssignments();
     const {
       page = 1,
-      limit = 20,
+      limit = 10,
       status,
-      search,
       assetId,
-      employeeId
+      employeeId,
+      search
     } = options;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -166,7 +192,7 @@ export const assignmentRepository = {
       if (assetId) query.assetId = assetId.trim().toUpperCase();
       if (employeeId) query.employeeId = employeeId.trim().toUpperCase();
       if (search) {
-        const regex = new RegExp(search, 'i');
+        const regex = new RegExp(escapeRegex(search), 'i');
         query.$or = [
           { assignmentId: regex },
           { assetId: regex },
@@ -228,10 +254,71 @@ export const assignmentRepository = {
     return null;
   },
 
+  findCurrentAssignment: async (assetId, session = null) => {
+    if (mongoose.connection.readyState === 1) {
+      const q = AssetAssignment.findOne({
+        assetId: assetId.trim().toUpperCase(),
+        status: 'ACTIVE'
+      }).sort({ assignedDate: -1 });
+      if (session) q.session(session);
+      return q;
+    }
+
+    for (const a of memoryAssignments.values()) {
+      if (a.assetId.toUpperCase() === assetId.trim().toUpperCase() && a.status === 'ACTIVE') {
+        return a;
+      }
+    }
+    return null;
+  },
+
+  findByAssetId: async (assetId) => {
+    if (mongoose.connection.readyState === 1) {
+      return AssetAssignment.find({
+        assetId: assetId.trim().toUpperCase()
+      }).sort({ assignedDate: -1 });
+    }
+
+    const matches = [];
+    for (const a of memoryAssignments.values()) {
+      if (a.assetId.toUpperCase() === assetId.trim().toUpperCase()) {
+        matches.push(a);
+      }
+    }
+    matches.sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
+    return matches;
+  },
+
+  findByEmployeeId: async (employeeId) => {
+    if (mongoose.connection.readyState === 1) {
+      return AssetAssignment.find({
+        employeeId: employeeId.trim().toUpperCase()
+      }).sort({ assignedDate: -1 });
+    }
+
+    const matches = [];
+    for (const a of memoryAssignments.values()) {
+      if (a.employeeId.toUpperCase() === employeeId.trim().toUpperCase()) {
+        matches.push(a);
+      }
+    }
+    matches.sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
+    return matches;
+  },
+
   /**
-   * Assign an AVAILABLE asset to an employee
+   * Internal assign logic supporting external Mongoose session
    */
-  assignAsset: async ({ assetId, employeeId, condition = 'GOOD', transferReason = 'Initial Staff Assignment', remarks = '', assignedBy = 'admin' }) => {
+  assignAssetInternal: async ({
+    assetId,
+    employeeId,
+    condition = 'GOOD',
+    transferReason = 'Initial Staff Assignment',
+    remarks = '',
+    assignedBy = 'admin',
+    cascadeComponents = false,
+    session = null
+  }) => {
     // 1. Fetch asset
     const asset = await assetRepository.findById(assetId);
     if (!asset) {
@@ -273,9 +360,8 @@ export const assignmentRepository = {
       throw err;
     }
 
-    // 4. Generate assignment ID
-    const assignmentSeq = memoryAssignments.size + 1;
-    const assignmentId = generateAssignmentId(assignmentSeq);
+    // 4. Generate collision-free assignment ID
+    const assignmentId = await generateAssignmentIdAsync(session);
 
     const assignmentData = {
       assignmentId,
@@ -300,7 +386,7 @@ export const assignmentRepository = {
     let savedAssignment;
     if (mongoose.connection.readyState === 1) {
       const doc = new AssetAssignment(assignmentData);
-      savedAssignment = await doc.save();
+      savedAssignment = await doc.save(session ? { session } : undefined);
     } else {
       const id = new mongoose.Types.ObjectId().toString();
       savedAssignment = {
@@ -322,23 +408,54 @@ export const assignmentRepository = {
       currentAssignmentDate: new Date(),
       department: employee.department,
       floor: employee.floor
-    });
+    }, { session });
+
+    // 6. Optional cascading assignment for linked components
+    if (cascadeComponents) {
+      const components = await relationshipRepository.findComponents(asset.assetId);
+      for (const comp of components) {
+        if (comp.asset && comp.asset.status === 'AVAILABLE') {
+          try {
+            await assignmentRepository.assignAssetInternal({
+              assetId: comp.asset.assetId,
+              employeeId: employee.employeeId,
+              assignedBy,
+              remarks: `Cascaded assignment from parent workstation ${asset.assetId}`,
+              cascadeComponents: false,
+              session
+            });
+          } catch (e) {
+            // Component could already be assigned
+          }
+        }
+      }
+    }
 
     return savedAssignment;
   },
 
   /**
-   * Transfer an ASSIGNED asset from current custodian to a new employee
-   * Immutably closes previous assignment and creates a new one
+   * Assign an AVAILABLE asset to an employee (Atomic Transaction)
    */
-  transferAsset: async ({
+  assignAsset: async (params) => {
+    return withTransaction(async (session) => {
+      return assignmentRepository.assignAssetInternal({ ...params, session });
+    });
+  },
+
+  /**
+   * Internal transfer logic supporting external session
+   */
+  transferAssetInternal: async ({
     assetId,
     toEmployeeId,
     transferReason,
     conditionAtReturn = 'GOOD',
     conditionAtNewAssignment = 'GOOD',
     remarks = '',
-    processedBy = 'admin'
+    processedBy = 'admin',
+    cascadeComponents = true,
+    session = null
   }) => {
     // 1. Fetch asset
     const asset = await assetRepository.findById(assetId);
@@ -375,19 +492,22 @@ export const assignmentRepository = {
       throw err;
     }
 
+    const previousCustodianId = asset.currentEmployeeId;
     const now = new Date();
 
     // 4. Close current active assignment
-    const currentAssignment = await assignmentRepository.findCurrentAssignment(asset.assetId);
+    const currentAssignment = await assignmentRepository.findCurrentAssignment(asset.assetId, session);
     if (currentAssignment) {
       if (mongoose.connection.readyState === 1) {
+        const updateOpts = { new: true };
+        if (session) updateOpts.session = session;
         await AssetAssignment.findByIdAndUpdate(currentAssignment._id, {
           status: 'TRANSFERRED',
           returnedDate: now,
           conditionAtReturn,
           returnedBy: processedBy,
           remarks: remarks ? `${currentAssignment.remarks} | Transfer: ${remarks}` : currentAssignment.remarks
-        });
+        }, updateOpts);
       } else {
         currentAssignment.status = 'TRANSFERRED';
         currentAssignment.returnedDate = now;
@@ -403,8 +523,7 @@ export const assignmentRepository = {
     }
 
     // 5. Create new active assignment for target employee
-    const newSeq = memoryAssignments.size + 1;
-    const newAssignmentId = generateAssignmentId(newSeq);
+    const newAssignmentId = await generateAssignmentIdAsync(session);
 
     const newAssignmentData = {
       assignmentId: newAssignmentId,
@@ -429,7 +548,7 @@ export const assignmentRepository = {
     let savedNewAssignment;
     if (mongoose.connection.readyState === 1) {
       const doc = new AssetAssignment(newAssignmentData);
-      savedNewAssignment = await doc.save();
+      savedNewAssignment = await doc.save(session ? { session } : undefined);
     } else {
       const id = new mongoose.Types.ObjectId().toString();
       savedNewAssignment = {
@@ -451,7 +570,30 @@ export const assignmentRepository = {
       currentAssignmentDate: now,
       department: targetEmployee.department,
       floor: targetEmployee.floor
-    });
+    }, { session });
+
+    // 7. Symmetrical Cascading Transfer for attached components
+    if (cascadeComponents) {
+      const components = await relationshipRepository.findComponents(asset.assetId);
+      for (const comp of components) {
+        if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
+          try {
+            await assignmentRepository.transferAssetInternal({
+              assetId: comp.asset.assetId,
+              toEmployeeId,
+              transferReason: `Cascaded transfer with parent workstation ${asset.assetId}`,
+              conditionAtReturn,
+              conditionAtNewAssignment,
+              processedBy,
+              cascadeComponents: false,
+              session
+            });
+          } catch (e) {
+            // Attached component transfer notice
+          }
+        }
+      }
+    }
 
     return {
       previousAssignment: currentAssignment,
@@ -460,14 +602,25 @@ export const assignmentRepository = {
   },
 
   /**
-   * Return an ASSIGNED asset back to IT inventory pool (unassign)
+   * Transfer an ASSIGNED asset from current custodian to a new employee (Atomic Transaction)
    */
-  returnAsset: async ({
+  transferAsset: async (params) => {
+    return withTransaction(async (session) => {
+      return assignmentRepository.transferAssetInternal({ ...params, session });
+    });
+  },
+
+  /**
+   * Internal return logic supporting external session
+   */
+  returnAssetInternal: async ({
     assetId,
     returnReason = 'Returned to IT Store / Inventory Pool',
     conditionAtReturn = 'GOOD',
     remarks = '',
-    processedBy = 'admin'
+    processedBy = 'admin',
+    cascadeComponents = true,
+    session = null
   }) => {
     // 1. Fetch asset
     const asset = await assetRepository.findById(assetId);
@@ -483,19 +636,22 @@ export const assignmentRepository = {
       throw err;
     }
 
+    const previousCustodianId = asset.currentEmployeeId;
     const now = new Date();
 
     // 2. Close current active assignment
-    const currentAssignment = await assignmentRepository.findCurrentAssignment(asset.assetId);
+    const currentAssignment = await assignmentRepository.findCurrentAssignment(asset.assetId, session);
     if (currentAssignment) {
       if (mongoose.connection.readyState === 1) {
+        const updateOpts = { new: true };
+        if (session) updateOpts.session = session;
         await AssetAssignment.findByIdAndUpdate(currentAssignment._id, {
           status: 'RETURNED',
           returnedDate: now,
           conditionAtReturn,
           returnedBy: processedBy,
           remarks: remarks ? `${currentAssignment.remarks} | Return: ${remarks}` : currentAssignment.remarks
-        });
+        }, updateOpts);
       } else {
         currentAssignment.status = 'RETURNED';
         currentAssignment.returnedDate = now;
@@ -520,14 +676,49 @@ export const assignmentRepository = {
       currentAssignmentDate: null,
       floor: 'IT Store / Pool',
       remarks: `${asset.remarks || ''} [Returned on ${now.toISOString().split('T')[0]}: ${returnReason}]`.trim()
-    });
+    }, { session });
+
+    // 4. Symmetrical Cascading Return for attached components
+    if (cascadeComponents) {
+      const components = await relationshipRepository.findComponents(asset.assetId);
+      for (const comp of components) {
+        if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
+          try {
+            await assignmentRepository.returnAssetInternal({
+              assetId: comp.asset.assetId,
+              returnReason: `Cascaded return with parent workstation ${asset.assetId}`,
+              conditionAtReturn,
+              processedBy,
+              cascadeComponents: false,
+              session
+            });
+          } catch (e) {
+            // Attached component return notice
+          }
+        }
+      }
+    }
 
     return {
       closedAssignment: currentAssignment,
       assetId: asset.assetId,
       status: 'AVAILABLE'
     };
+  },
+
+  /**
+   * Return an ASSIGNED asset back to IT inventory pool (unassign) (Atomic Transaction)
+   */
+  returnAsset: async (params) => {
+    return withTransaction(async (session) => {
+      return assignmentRepository.returnAssetInternal({ ...params, session });
+    });
   }
 };
 
 assignmentRepository.find = assignmentRepository.findPaginated;
+assignmentRepository.findHistoryByAsset = assignmentRepository.findByAssetId;
+assignmentRepository.findByAsset = assignmentRepository.findByAssetId;
+assignmentRepository.findByEmployee = assignmentRepository.findByEmployeeId;
+
+export default assignmentRepository;

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -20,6 +23,8 @@ import tagRoutes from './routes/tagRoutes.js';
 import amcRoutes from './routes/amcRoutes.js';
 import verificationRoutes from './routes/verificationRoutes.js';
 import excelFieldRoutes from './routes/excelFieldRoutes.js';
+import masterRoutes from './routes/masterRoutes.js';
+import relationshipRoutes from './routes/relationshipRoutes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -103,6 +108,7 @@ app.get('/api/v1/health', (req, res) => {
 
 // Mount Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/master', masterRoutes);
 app.use('/api/v1/master/departments', departmentRoutes);
 app.use('/api/v1/master/categories', categoryRoutes);
 app.use('/api/v1/employees', employeeRoutes);
@@ -118,6 +124,7 @@ app.use('/api/v1/tags', tagRoutes);
 app.use('/api/v1/amc', amcRoutes);
 app.use('/api/v1/verification', verificationRoutes);
 app.use('/api/v1/excel-fields', excelFieldRoutes);
+app.use('/api/v1/relationships', relationshipRoutes);
 
 // Fallback route handlers
 app.use(notFound);

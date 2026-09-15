@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Employee from '../models/Employee.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryEmployees = new Map();
 
@@ -94,7 +95,7 @@ export const employeeRepository = {
         query.floor = floor;
       }
       if (search) {
-        const regex = new RegExp(search, 'i');
+        const regex = new RegExp(escapeRegex(search), 'i');
         query.$or = [
           { name: regex },
           { employeeId: regex },
@@ -164,7 +165,7 @@ export const employeeRepository = {
     if (!name) return null;
     const cleanName = name.trim();
     if (mongoose.connection.readyState === 1) {
-      return Employee.findOne({ name: new RegExp(`^${cleanName}$`, 'i') });
+      return Employee.findOne({ name: new RegExp(`^${escapeRegex(cleanName)}$`, 'i') });
     }
     for (const emp of memoryEmployees.values()) {
       if (emp.name.toLowerCase() === cleanName.toLowerCase()) {

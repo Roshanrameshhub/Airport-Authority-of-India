@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Complaint from '../models/Complaint.js';
 import { assetRepository } from './assetRepository.js';
 import { generateTicketId } from '../utils/idGenerator.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryComplaints = new Map();
 
@@ -116,7 +117,7 @@ export const complaintRepository = {
       if (employeeId) query['reportedBy.employeeId'] = employeeId.trim().toUpperCase();
 
       if (search) {
-        const regex = new RegExp(search, 'i');
+        const regex = new RegExp(escapeRegex(search), 'i');
         query.$or = [
           { ticketId: regex },
           { assetId: regex },

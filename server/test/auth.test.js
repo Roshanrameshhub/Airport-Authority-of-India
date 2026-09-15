@@ -145,11 +145,49 @@ test('Phase 2 Authentication and Authorization Test Suite', async (t) => {
     assert.strictEqual(body.success, false);
   });
 
-  // 12. User Registration
-  await t.test('POST /register creates a new user and returns 201', async () => {
+  // 12. Security Verification: Unauthenticated POST /register returns 401 Unauthorized
+  await t.test('POST /register without token returns 401 Unauthorized', async () => {
     const res = await fetch(`${baseUrl}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'unauth.user',
+        name: 'Unauthenticated User',
+        email: 'unauth@aai.aero',
+        password: 'Password@123',
+        role: 'EMPLOYEE'
+      })
+    });
+    assert.strictEqual(res.status, 401);
+  });
+
+  // 13. Security Verification: Employee POST /register returns 403 Forbidden
+  await t.test('POST /register by Employee returns 403 Forbidden', async () => {
+    const res = await fetch(`${baseUrl}/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${employeeToken}`
+      },
+      body: JSON.stringify({
+        username: 'employee.attempt',
+        name: 'Employee Attempt',
+        email: 'emp.attempt@aai.aero',
+        password: 'Password@123',
+        role: 'EMPLOYEE'
+      })
+    });
+    assert.strictEqual(res.status, 403);
+  });
+
+  // 14. Admin User Registration
+  await t.test('POST /register by Admin creates a new user and returns 201', async () => {
+    const res = await fetch(`${baseUrl}/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
       body: JSON.stringify({
         username: 'amit.sharma',
         name: 'Amit Sharma',
@@ -167,11 +205,14 @@ test('Phase 2 Authentication and Authorization Test Suite', async (t) => {
     assert.strictEqual(body.data.user.username, 'amit.sharma');
   });
 
-  // 13. Duplicate Registration Collision
+  // 15. Duplicate Registration Collision
   await t.test('POST /register with duplicate username returns 409 Conflict', async () => {
     const res = await fetch(`${baseUrl}/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
       body: JSON.stringify({
         username: 'amit.sharma',
         name: 'Amit Sharma Duplicate',

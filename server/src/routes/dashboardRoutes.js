@@ -4,7 +4,10 @@ import {
   getCategoryDistribution,
   getDepartmentDistribution,
   getWarrantyAlerts,
-  getRecentActivity
+  getRecentActivity,
+  getStatusDistribution,
+  getVendorDistribution,
+  getAssetTypeDistribution
 } from '../controllers/dashboardController.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -17,6 +20,9 @@ router.use(protect);
 router.get('/stats', authorize('ADMIN', 'EMPLOYEE'), getDashboardStats);
 router.get('/category-distribution', authorize('ADMIN', 'EMPLOYEE'), getCategoryDistribution);
 router.get('/department-distribution', authorize('ADMIN', 'EMPLOYEE'), getDepartmentDistribution);
+router.get('/status-distribution', authorize('ADMIN', 'EMPLOYEE'), getStatusDistribution);
+router.get('/vendor-distribution', authorize('ADMIN', 'EMPLOYEE'), getVendorDistribution);
+router.get('/type-distribution', authorize('ADMIN', 'EMPLOYEE'), getAssetTypeDistribution);
 router.get('/warranty-alerts', authorize('ADMIN', 'EMPLOYEE'), getWarrantyAlerts);
 router.get('/recent-activity', authorize('ADMIN', 'EMPLOYEE'), getRecentActivity);
 

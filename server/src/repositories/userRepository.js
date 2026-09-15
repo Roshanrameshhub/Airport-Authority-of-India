@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 import { logger } from '../utils/logger.js';
 
 // Autonomous in-memory registry for development / test fallback
@@ -206,7 +207,7 @@ export const userRepository = {
 
     if (mongoose.connection.readyState === 1) {
       return User.findOne({
-        employeeId: new RegExp(`^${cleanId}$`, 'i')
+        employeeId: new RegExp(`^${escapeRegex(cleanId)}$`, 'i')
       });
     }
 

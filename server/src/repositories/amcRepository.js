@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import VendorAMC from '../models/VendorAMC.js';
 import { calculateWarrantyStatus } from '../utils/warranty.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 import { logger } from '../utils/logger.js';
 
 const memoryAMCs = new Map();
@@ -95,7 +96,7 @@ export const amcRepository = {
         const filter = {};
         if (serviceType) filter.serviceType = serviceType;
         if (search) {
-          const regex = new RegExp(search, 'i');
+          const regex = new RegExp(escapeRegex(search), 'i');
           filter.$or = [
             { contractNumber: regex },
             { vendorName: regex },

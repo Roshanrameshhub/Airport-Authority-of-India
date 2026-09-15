@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import AuditLog from '../models/AuditLog.js';
 import { logger } from '../utils/logger.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryAuditLogs = [];
 
@@ -178,7 +179,7 @@ export const auditRepository = {
         }
 
         if (search) {
-          const regex = new RegExp(search, 'i');
+          const regex = new RegExp(escapeRegex(search), 'i');
           filter.$or = [
             { action: regex },
             { entityId: regex },

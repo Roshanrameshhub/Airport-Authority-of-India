@@ -1,7 +1,16 @@
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'aai_regional_office_ams_jwt_secret_key_2026_production_grade';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+    throw new Error('FATAL SECURITY CONFIGURATION ERROR: JWT_SECRET environment variable is missing or empty. Application cannot operate without a cryptographically secure secret.');
+  }
+  return secret;
+};
+
+const getJwtExpiresIn = () => process.env.JWT_EXPIRES_IN || '7d';
 
 /**
  * Generates a signed JWT for an authenticated user
@@ -17,8 +26,8 @@ export const generateToken = (user) => {
       employeeId: user.employeeId || null,
       name: user.name
     },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    getJwtSecret(),
+    { expiresIn: getJwtExpiresIn() }
   );
 };
 
@@ -28,5 +37,5 @@ export const generateToken = (user) => {
  * @returns {Object} Decoded payload
  */
 export const verifyToken = (token) => {
-  return jwt.verify(token, JWT_SECRET);
+  return jwt.verify(token, getJwtSecret());
 };

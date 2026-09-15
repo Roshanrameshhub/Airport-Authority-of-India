@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Category from '../models/Category.js';
+import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryCategories = new Map();
 
@@ -49,7 +50,7 @@ export const categoryRepository = {
     if (mongoose.connection.readyState === 1) {
       return Category.findOne({
         $or: [
-          { name: { $regex: new RegExp(`^${name}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${escapeRegex(name)}$`, 'i') } },
           { code: code.toUpperCase() }
         ]
       });

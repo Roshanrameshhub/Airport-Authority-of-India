@@ -66,3 +66,42 @@ export const getRecentActivity = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/v1/dashboard/status-distribution
+ * Breakdown of equipment across lifecycle statuses
+ */
+export const getStatusDistribution = async (req, res, next) => {
+  try {
+    const distribution = await dashboardRepository.getStatusDistribution();
+    return sendSuccess(res, distribution, 'Status distribution retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/dashboard/vendor-distribution
+ * Breakdown of equipment procurement across suppliers
+ */
+export const getVendorDistribution = async (req, res, next) => {
+  try {
+    const distribution = await dashboardRepository.getVendorDistribution();
+    return sendSuccess(res, distribution, 'Vendor distribution retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/dashboard/type-distribution
+ * Breakdown of equipment across rationalized asset types
+ */
+export const getAssetTypeDistribution = async (req, res, next) => {
+  try {
+    const distribution = await dashboardRepository.getAssetTypeDistribution();
+    return sendSuccess(res, distribution, 'Asset type distribution retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};

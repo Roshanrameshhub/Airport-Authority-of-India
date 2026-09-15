@@ -262,6 +262,26 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
       remarks: remarksText,
       category: (row.category || '').trim(),
       assetId: (row.assetId || '').trim().toUpperCase(),
+      oldAssetId: (row.oldAssetId || '').trim(),
+      assetType: (row.assetType || '').trim().toUpperCase(),
+      supplier: (row.supplier || row.vendor || '').trim(),
+      supplyOrderNumber: (row.supplyOrderNumber || '').trim(),
+      purchaseDate: row.purchaseDate,
+      purchaseCost: row.purchaseCost,
+      location: (row.location || '').trim(),
+      room: (row.room || '').trim(),
+      intercom: (row.intercom || '').trim(),
+      ipAddress: (row.ipAddress || '').trim(),
+      macAddress: (row.macAddress || '').trim(),
+      amcApplicable: row.amcApplicable,
+      amcContractId: (row.amcContractId || '').trim(),
+      processor: (row.processor || '').trim(),
+      ramSizeGb: row.ramSizeGb,
+      storageCapacityGb: row.storageCapacityGb,
+      storageType: (row.storageType || '').trim(),
+      hostname: (row.hostname || '').trim(),
+      screenSizeInches: row.screenSizeInches,
+      capacityVa: row.capacityVa,
       customFields: { ...(row.customFields || {}) }
     };
 
@@ -303,7 +323,11 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
       const fieldsToCheck = [
         'assetName', 'make', 'model', 'department', 'floor',
         'installDate', 'warrantyEndDate', 'operatingSystem', 'osVersion',
-        'employeeId', 'userName', 'designation', 'remarks', 'category', 'assetId'
+        'employeeId', 'userName', 'designation', 'remarks', 'category', 'assetId',
+        'oldAssetId', 'assetType', 'supplier', 'supplyOrderNumber', 'purchaseDate',
+        'purchaseCost', 'location', 'room', 'intercom', 'ipAddress', 'macAddress',
+        'amcApplicable', 'amcContractId', 'processor', 'ramSizeGb', 'storageCapacityGb',
+        'storageType', 'hostname', 'screenSizeInches', 'capacityVa'
       ];
 
       for (const field of fieldsToCheck) {

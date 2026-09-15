@@ -9,7 +9,9 @@ const router = Router();
 
 // Public Authentication Endpoints
 router.post('/login', validate(loginSchema), login);
-router.post('/register', validate(registerSchema), register);
+
+// Protected User Provisioning Endpoint (Admin Only)
+router.post('/register', protect, authorize('ADMIN'), validate(registerSchema), register);
 
 // Protected Endpoints
 router.get('/me', protect, getMe);

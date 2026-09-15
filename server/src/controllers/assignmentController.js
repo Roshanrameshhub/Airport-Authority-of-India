@@ -96,7 +96,7 @@ export const getAssignmentById = async (req, res, next) => {
 
 export const assignAsset = async (req, res, next) => {
   try {
-    const { assetId, employeeId, condition, transferReason, remarks } = req.body;
+    const { assetId, employeeId, condition, transferReason, remarks, cascadeComponents = false } = req.body;
     const assignedBy = req.user?.username || 'admin';
 
     const assignment = await assignmentRepository.assignAsset({
@@ -105,7 +105,8 @@ export const assignAsset = async (req, res, next) => {
       condition,
       transferReason,
       remarks,
-      assignedBy
+      assignedBy,
+      cascadeComponents
     });
 
     // Audit Logging
