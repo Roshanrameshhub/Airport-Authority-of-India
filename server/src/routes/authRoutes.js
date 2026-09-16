@@ -5,10 +5,12 @@ import { validate } from '../middleware/validate.js';
 import { loginSchema, registerSchema } from '../validations/authValidation.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
+import { authLimiter } from '../middleware/rateLimiter.js';
+
 const router = Router();
 
 // Public Authentication Endpoints
-router.post('/login', validate(loginSchema), login);
+router.post('/login', authLimiter, validate(loginSchema), login);
 
 // Protected User Provisioning Endpoint (Admin Only)
 router.post('/register', protect, authorize('ADMIN'), validate(registerSchema), register);

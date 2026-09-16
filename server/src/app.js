@@ -30,6 +30,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Trust proxy to ensure correct client IP extraction when deployed behind a reverse proxy (e.g., Render)
+app.set('trust proxy', 1);
+
 // Security Middlewares
 app.use(helmet());
 
