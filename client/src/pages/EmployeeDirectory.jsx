@@ -490,18 +490,17 @@ export default function EmployeeDirectory() {
           <tr>
             <th className="col-emp-id">Employee ID</th>
             <th className="col-emp-name">Staff Member</th>
-            <th className="col-emp-type">Type &amp; Category</th>
             <th className="col-emp-desig">Designation</th>
             <th className="col-emp-dept">Department &amp; Location</th>
             <th className="col-emp-assets">Assigned Assets</th>
-            <th className="col-emp-contact">Contact Details</th>
+            <th className="col-emp-contact">Contact</th>
             <th className="col-emp-actions" style={{ textAlign: 'right' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-10) var(--space-4)' }}>
+              <td colSpan={7} style={{ textAlign: 'center', padding: 'var(--space-10) var(--space-4)' }}>
                 <div className="pulse-dot" style={{ margin: '0 auto var(--space-3)' }} />
                 <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading staff records...</span>
               </td>
@@ -511,7 +510,7 @@ export default function EmployeeDirectory() {
               icon={Users}
               title="No staff members match criteria"
               description="Try adjusting your search query or filter selections to view all registered personnel."
-              colSpan={8}
+              colSpan={7}
               action={
                 hasActiveFilters ? (
                   <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
@@ -536,43 +535,45 @@ export default function EmployeeDirectory() {
                   </button>
                 </td>
                 <td className="col-emp-name">
-                  <div
-                    className="emp-name-text"
-                    onClick={() => handleOpenDetailModal(emp)}
-                    style={{ cursor: 'pointer' }}
-                    title={`Click to view profile: ${emp.name}`}
-                  >
-                    {emp.name}
-                  </div>
-                </td>
-                <td className="col-emp-type">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <span
-                      className="badge"
-                      style={{
-                        width: 'fit-content',
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        backgroundColor: emp.employeeType === 'Contract' ? '#EDE9FE' : '#DBEAFE',
-                        color: emp.employeeType === 'Contract' ? '#6D28D9' : '#1D4ED8',
-                        border: `1px solid ${emp.employeeType === 'Contract' ? '#C4B5FD' : '#93C5FD'}`
-                      }}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div
+                      className="emp-name-text"
+                      onClick={() => handleOpenDetailModal(emp)}
+                      style={{ cursor: 'pointer' }}
+                      title={`Click to view profile: ${emp.name}`}
                     >
-                      {emp.employeeType || 'AAI'}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-                      {emp.employmentCategory || 'Regular'}
-                    </span>
-                    {emp.contractorName && (
-                      <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }} title={`Contractor: ${emp.contractorName}`}>
-                        &bull; {emp.contractorName}
+                      {emp.name}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        className="badge"
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          backgroundColor: emp.employeeType === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                          color: emp.employeeType === 'Contract' ? '#6D28D9' : '#1D4ED8',
+                          border: `1px solid ${emp.employeeType === 'Contract' ? '#C4B5FD' : '#93C5FD'}`,
+                          padding: '2px 6px'
+                        }}
+                      >
+                        {emp.employeeType || 'AAI'}
                       </span>
-                    )}
+                      {emp.contractorName && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }} title={`Contractor: ${emp.contractorName}`}>
+                          &bull; {emp.contractorName}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="col-emp-desig">
-                  <div className="emp-desig-text" title={emp.designation}>
-                    {emp.designation}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div className="emp-desig-text" title={emp.designation}>
+                      {emp.designation}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                      {emp.employmentCategory || 'Regular'}
+                    </div>
                   </div>
                 </td>
                 <td className="col-emp-dept">
