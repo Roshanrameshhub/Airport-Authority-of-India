@@ -22,6 +22,17 @@ const computerConfigurationSchema = new mongoose.Schema({
   hostname: { type: String, trim: true, default: '' }
 }, { _id: false });
 
+// Reusable Subdocument Schema for Software & Licensing
+const softwareConfigurationSchema = new mongoose.Schema({
+  osKey: { type: String, trim: true, default: '' },
+  officeSuite: { type: String, trim: true, default: '' },
+  officeKey: { type: String, trim: true, default: '' },
+  adobeSoftware: { type: String, trim: true, default: '' },
+  adobeKey: { type: String, trim: true, default: '' },
+  antivirus: { type: String, trim: true, default: '' },
+  antivirusKey: { type: String, trim: true, default: '' }
+}, { _id: false });
+
 // Reusable Subdocument Schema for Display Configuration (Phase 3 readiness)
 const displayConfigurationSchema = new mongoose.Schema({
   screenSizeInches: { type: Number, default: null },
@@ -55,6 +66,8 @@ const networkConfigurationSchema = new mongoose.Schema({
   totalPorts: { type: Number, default: null },
   portSpeed: { type: String, trim: true, default: '1 Gbps' },
   managementIp: { type: String, trim: true, default: '' },
+  ipAddress: { type: String, trim: true, default: '' },
+  macAddress: { type: String, trim: true, default: '' },
   firmwareVersion: { type: String, trim: true, default: '' },
   isManaged: { type: Boolean, default: true }
 }, { _id: false });
@@ -114,8 +127,13 @@ const assetSchema = new mongoose.Schema({
   },
   serialNumber: {
     type: String,
-    required: [true, 'Serial Number is required'],
+    required: function() {
+      // Require serial number for major IT assets, optional for peripherals/accessories
+      const exemptTypes = ['PERIPHERAL', 'OTHER'];
+      return !exemptTypes.includes(this.assetType);
+    },
     unique: true,
+    sparse: true,
     trim: true,
     uppercase: true
   },
@@ -264,27 +282,7 @@ const assetSchema = new mongoose.Schema({
     default: null
   },
 
-  // 6. Common Network & OS
-  operatingSystem: {
-    type: String,
-    trim: true,
-    default: 'N/A'
-  },
-  osVersion: {
-    type: String,
-    trim: true,
-    default: ''
-  },
-  ipAddress: {
-    type: String,
-    trim: true,
-    default: ''
-  },
-  macAddress: {
-    type: String,
-    trim: true,
-    default: ''
-  },
+  // 6. Root OS & Network Fields Removed (Moved to computerConfig and networkConfig)
 
   // 7. Lifecycle & Operational Status
   status: {
@@ -302,6 +300,7 @@ const assetSchema = new mongoose.Schema({
       'RETIRED',
       'DISPOSED'
     ],
+    required: [true, 'Asset Status is required'],
     default: 'AVAILABLE'
   },
   condition: {
@@ -317,6 +316,7 @@ const assetSchema = new mongoose.Schema({
       'UNUSABLE',
       'OBSOLETE'
     ],
+    required: [true, 'Asset Condition is required'],
     default: 'GOOD'
   },
   isArchived: {
@@ -348,6 +348,10 @@ const assetSchema = new mongoose.Schema({
   },
   networkConfig: {
     type: networkConfigurationSchema,
+    default: () => ({})
+  },
+  softwareConfig: {
+    type: softwareConfigurationSchema,
     default: () => ({})
   },
 

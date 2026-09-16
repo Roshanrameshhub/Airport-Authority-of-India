@@ -260,8 +260,8 @@ export default function EmployeeDashboard() {
                     <td>{asset.make} &bull; {asset.model}</td>
                     <td><code style={{ fontSize: '0.8rem' }}>{asset.serialNumber}</code></td>
                     <td style={{ fontSize: '0.825rem' }}>
-                      {asset.operatingSystem && asset.operatingSystem !== 'N/A' 
-                        ? `${asset.operatingSystem} ${asset.osVersion || ''}`
+                      {(asset.computerConfig?.operatingSystem || asset.operatingSystem) && (asset.computerConfig?.operatingSystem || asset.operatingSystem) !== 'N/A' 
+                        ? `${asset.computerConfig?.operatingSystem || asset.operatingSystem} ${asset.computerConfig?.osVersion || asset.osVersion || ''}`
                         : 'Hardware Unit'}
                     </td>
                     <td>

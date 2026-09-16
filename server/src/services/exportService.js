@@ -159,6 +159,7 @@ export const exportService = {
       });
 
       const cc = asset.computerConfig || {};
+      const nc = asset.networkConfig || {};
 
       return [
         // Asset Identity
@@ -184,10 +185,10 @@ export const exportService = {
         cc.ramSizeGb != null ? cc.ramSizeGb : '',
         cc.storageCapacityGb != null ? cc.storageCapacityGb : '',
         cc.storageType || '',
-        asset.operatingSystem || 'N/A',
-        asset.osVersion || '',
-        cc.ipAddress || asset.ipAddress || '',
-        cc.macAddress || asset.macAddress || '',
+        cc.operatingSystem || asset.operatingSystem || 'N/A',
+        cc.osVersion || asset.osVersion || '',
+        nc.ipAddress || asset.ipAddress || '',
+        nc.macAddress || asset.macAddress || '',
         cc.hostname || '',
         // Location
         asset.location || 'AAI Operational Facility',
@@ -321,7 +322,7 @@ export const exportService = {
       doc.fillColor(docColors.muted).font('Helvetica').text('Serial Number (OEM):', c1, y);
       doc.fillColor(docColors.text).font('Helvetica-Bold').fontSize(9).text(asset?.serialNumber || '—', c2, y);
       doc.fillColor(docColors.muted).font('Helvetica').fontSize(8.5).text('Operating System:', c3, y);
-      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.operatingSystem || 'N/A'} ${asset?.osVersion || ''}`, c4, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.computerConfig?.operatingSystem || asset?.operatingSystem || 'N/A'} ${asset?.computerConfig?.osVersion || asset?.osVersion || ''}`, c4, y);
 
       y += 16;
       doc.fillColor(docColors.muted).font('Helvetica').text('Installation Date:', c1, y);
@@ -458,7 +459,7 @@ export const exportService = {
       doc.fillColor(docColors.muted).font('Helvetica').text('Make / Model:', c1, y);
       doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.make || '—'} ${asset?.model || ''}`, c2, y);
       doc.fillColor(docColors.muted).font('Helvetica').text('Operating System:', c3, y);
-      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.operatingSystem || 'N/A'} ${asset?.osVersion || ''}`, c4, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.computerConfig?.operatingSystem || asset?.operatingSystem || 'N/A'} ${asset?.computerConfig?.osVersion || asset?.osVersion || ''}`, c4, y);
 
       y += 16;
       doc.fillColor(docColors.muted).font('Helvetica').text('Transfer Date:', c1, y);
@@ -591,7 +592,7 @@ export const exportService = {
       doc.fillColor(docColors.muted).font('Helvetica').text('Make / Model:', c1, y);
       doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.make || ''} ${asset?.model || ''}`, c2, y);
       doc.fillColor(docColors.muted).font('Helvetica').text('Operating System:', c3, y);
-      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.operatingSystem || 'N/A'} ${asset?.osVersion || ''}`, c4, y);
+      doc.fillColor(docColors.text).font('Helvetica').text(`${asset?.computerConfig?.operatingSystem || asset?.operatingSystem || 'N/A'} ${asset?.computerConfig?.osVersion || asset?.osVersion || ''}`, c4, y);
 
       y += 28;
       renderSectionTitle(doc, y, '3. STORE VERIFICATION & PHYSICAL INSPECTION AT RECEIPT');

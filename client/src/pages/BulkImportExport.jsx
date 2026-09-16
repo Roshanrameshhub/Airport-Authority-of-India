@@ -2132,7 +2132,7 @@ export default function BulkImportExport() {
                           {asset.warrantyEndDate || '—'}
                         </td>
                         <td style={{ padding: '8px 12px', color: 'var(--color-text-secondary)' }}>
-                          {asset.operatingSystem || '—'}
+                          {asset.computerConfig?.operatingSystem || asset.operatingSystem || '—'}
                         </td>
                         <td style={{ padding: '8px 12px', color: 'var(--color-text-muted)', fontSize: '0.74rem', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={asset.remarks}>
                           {asset.remarks || '—'}

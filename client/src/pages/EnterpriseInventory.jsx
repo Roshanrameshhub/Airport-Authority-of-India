@@ -93,8 +93,8 @@ const COLUMN_GROUPS = [
       { id: 'ramSizeGb',        label: 'RAM (GB)',     frozen: false, width: 90,  render: (a) => a.computerConfig?.ramSizeGb != null ? `${a.computerConfig.ramSizeGb} GB` : '—' },
       { id: 'storageCapacityGb',label: 'Storage (GB)', frozen: false, width: 100, render: (a) => a.computerConfig?.storageCapacityGb != null ? `${a.computerConfig.storageCapacityGb} GB` : '—' },
       { id: 'storageType',      label: 'Storage Type', frozen: false, width: 100, render: (a) => a.computerConfig?.storageType || '—' },
-      { id: 'ipAddress',        label: 'IP Address',   frozen: false, width: 130, render: (a) => a.computerConfig?.ipAddress || a.ipAddress || '—' },
-      { id: 'macAddress',       label: 'MAC Address',  frozen: false, width: 150, render: (a) => <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{a.computerConfig?.macAddress || a.macAddress || '—'}</span> },
+      { id: 'ipAddress',        label: 'IP Address',   frozen: false, width: 130, render: (a) => a.networkConfig?.ipAddress || a.ipAddress || '—' },
+      { id: 'macAddress',       label: 'MAC Address',  frozen: false, width: 150, render: (a) => <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>{a.networkConfig?.macAddress || a.macAddress || '—'}</span> },
       { id: 'hostname',         label: 'Hostname',     frozen: false, width: 140, render: (a) => a.computerConfig?.hostname || '—' }
     ]
   },

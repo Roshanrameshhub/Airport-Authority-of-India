@@ -301,8 +301,8 @@ test('AAI-AMS Real-World Multi-Worksheet Excel Import Test Suite', async (t) => 
     assert.strictEqual(cpuMur.make, 'Dell');
     assert.strictEqual(cpuMur.model, 'OptiPlex 7090');
     assert.strictEqual(cpuMur.status, 'ASSIGNED');
-    assert.strictEqual(cpuMur.operatingSystem, 'Windows 11 Pro');
-    assert.strictEqual(cpuMur.osVersion, '23H2');
+    assert.strictEqual(cpuMur.computerConfig?.operatingSystem, 'Windows 11 Pro');
+    assert.strictEqual(cpuMur.computerConfig?.osVersion, '23H2');
 
     const monMur = await assetRepository.findBySerialNumber('MON-MUR-001');
     assert.ok(monMur);

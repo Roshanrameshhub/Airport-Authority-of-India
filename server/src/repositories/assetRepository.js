@@ -30,9 +30,6 @@ const seedAssets = () => {
         warrantyStartDate: new Date('2024-01-15'),
         warrantyEndDate: new Date('2027-01-15'),
         amcApplicable: false,
-        operatingSystem: 'Windows 11 Enterprise',
-        osVersion: '23H2 (Build 22631)',
-        ipAddress: '10.20.14.101',
         department: 'Communication, Navigation & Surveillance',
         departmentId: 'CNS',
         location: 'Chennai Airport',
@@ -62,9 +59,11 @@ const seedAssets = () => {
           operatingSystem: 'Windows 11 Enterprise',
           osVersion: '23H2 (Build 22631)',
           osArchitecture: '64-bit',
-          ipAddress: '10.20.14.101',
-          macAddress: 'F8:75:A4:44:98:A1',
           hostname: 'AAI-CNS-PC-01'
+        },
+        networkConfig: {
+          ipAddress: '10.20.14.101',
+          macAddress: 'F8:75:A4:44:98:A1'
         }
       },
       {
@@ -120,9 +119,11 @@ const seedAssets = () => {
           operatingSystem: 'Windows 11 Enterprise',
           osVersion: '23H2 (Build 22631)',
           osArchitecture: '64-bit',
-          ipAddress: '10.20.14.102',
-          macAddress: 'F8:75:A4:44:98:B2',
           hostname: 'AAI-CNS-LPT-02'
+        },
+        networkConfig: {
+          ipAddress: '10.20.14.102',
+          macAddress: 'F8:75:A4:44:98:B2'
         }
       },
       {
@@ -529,8 +530,17 @@ export const assetRepository = {
       if (floor) query.floor = floor;
       if (room) query.room = room;
       if (supplier) query.supplier = supplier;
-      if (operatingSystem) query.operatingSystem = new RegExp(escapeRegex(operatingSystem), 'i');
-      if (ipAddress) query.ipAddress = new RegExp(escapeRegex(ipAddress), 'i');
+      if (operatingSystem) {
+        query['computerConfig.operatingSystem'] = new RegExp(escapeRegex(operatingSystem), 'i');
+      }
+      if (ipAddress) {
+        query.$or = query.$or || [];
+        const ipRegex = new RegExp(escapeRegex(ipAddress), 'i');
+        query.$or.push(
+          { 'computerConfig.ipAddress': ipRegex },
+          { 'networkConfig.ipAddress': ipRegex }
+        );
+      }
       if (typeof amcApplicable === 'boolean' || amcApplicable === 'true' || amcApplicable === 'false') {
         query.amcApplicable = amcApplicable === true || amcApplicable === 'true';
       }
@@ -593,11 +603,14 @@ export const assetRepository = {
     if (supplier) list = list.filter(a => (a.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
     if (operatingSystem) {
       const os = operatingSystem.toLowerCase();
-      list = list.filter(a => (a.operatingSystem || '').toLowerCase().includes(os));
+      list = list.filter(a => (a.computerConfig?.operatingSystem || '').toLowerCase().includes(os));
     }
     if (ipAddress) {
       const ip = ipAddress.toLowerCase();
-      list = list.filter(a => (a.ipAddress || '').toLowerCase().includes(ip));
+      list = list.filter(a => 
+        (a.computerConfig?.ipAddress || '').toLowerCase().includes(ip) || 
+        (a.networkConfig?.ipAddress || '').toLowerCase().includes(ip)
+      );
     }
     if (typeof amcApplicable === 'boolean' || amcApplicable === 'true' || amcApplicable === 'false') {
       const boolVal = amcApplicable === true || amcApplicable === 'true';

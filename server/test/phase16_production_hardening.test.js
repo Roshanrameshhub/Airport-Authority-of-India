@@ -98,7 +98,9 @@ test('Phase 16 Production Hardening & Enterprise Integrity Test Suite', async (t
         installDate: '2024-01-01',
         warrantyEndDate: '2027-01-01',
         department: 'Information Technology',
-        floor: '1st Floor'
+        floor: '1st Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     assert.strictEqual(createRes.status, 201);
@@ -179,7 +181,9 @@ test('Phase 16 Production Hardening & Enterprise Integrity Test Suite', async (t
         installDate: '2024-01-01',
         warrantyEndDate: '2027-01-01',
         department: 'Communication, Navigation & Surveillance',
-        floor: '2nd Floor'
+        floor: '2nd Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     const parentAsset = (await parentRes.json()).data;
@@ -196,7 +200,9 @@ test('Phase 16 Production Hardening & Enterprise Integrity Test Suite', async (t
         installDate: '2024-01-01',
         warrantyEndDate: '2027-01-01',
         department: 'Communication, Navigation & Surveillance',
-        floor: '2nd Floor'
+        floor: '2nd Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     const childAsset = (await childRes.json()).data;
@@ -208,7 +214,7 @@ test('Phase 16 Production Hardening & Enterprise Integrity Test Suite', async (t
       body: JSON.stringify({
         parentAssetId: parentAsset.assetId,
         childAssetId: childAsset.assetId,
-        relationshipType: 'ATTACHED_COMPONENT'
+        relationshipType: 'COMPONENT_OF'
       })
     });
     assert.strictEqual(linkRes.status, 201);

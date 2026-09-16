@@ -33,7 +33,7 @@ test('Phase 5 Network, Software & AMC Subsystems Test Suite', async (t) => {
     const body = await res.json();
     assert.strictEqual(body.success, true);
     assert.ok(body.data.length >= 2);
-    assert.ok(body.data.every(a => a.operatingSystem.includes('Windows 11')));
+    assert.ok(body.data.every(a => a.computerConfig?.operatingSystem?.includes('Windows 11')));
   });
 
   // 2. Filter by Static IP Address
@@ -45,7 +45,7 @@ test('Phase 5 Network, Software & AMC Subsystems Test Suite', async (t) => {
     const body = await res.json();
     assert.strictEqual(body.success, true);
     assert.strictEqual(body.data.length, 1);
-    assert.strictEqual(body.data[0].ipAddress, '10.20.14.101');
+    assert.strictEqual(body.data[0].networkConfig?.ipAddress, '10.20.14.101');
     assert.strictEqual(body.data[0].assetId, 'AAI-REG-PC-2024-0001');
   });
 

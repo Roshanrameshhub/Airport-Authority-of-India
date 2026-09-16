@@ -95,11 +95,15 @@ test('Phase 10 End-to-End Enterprise Lifecycle & System Hardening Test Suite', a
       installDate: '2024-01-15T00:00:00.000Z',
       warrantyStartDate: '2024-01-15T00:00:00.000Z',
       warrantyEndDate: '2027-01-14T00:00:00.000Z',
-      operatingSystem: 'Windows 11 Pro for Workstations',
-      osVersion: '23H2 (Build 22631.3880)',
+      computerConfig: {
+        operatingSystem: 'Windows 11 Pro for Workstations',
+        osVersion: '23H2 (Build 22631.3880)'
+      },
       department: 'Communication, Navigation & Surveillance',
       floor: '2nd Floor, Technical Block',
-      remarks: 'Primary surveillance workstation for radar maintenance'
+      remarks: 'Primary surveillance workstation for radar maintenance',
+      status: 'AVAILABLE',
+      condition: 'NEW'
     };
 
     const res = await fetch(`${baseUrl}/assets`, {

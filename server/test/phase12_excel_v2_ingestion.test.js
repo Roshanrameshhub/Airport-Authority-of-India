@@ -162,8 +162,8 @@ test('Phase 12 Excel Multi-Attribute Ingestion & Schema V2 Mapping Test Suite', 
     assert.strictEqual(pcAsset.purchaseCost, 72500);
     assert.strictEqual(pcAsset.room, 'Room 204');
     assert.strictEqual(pcAsset.intercom, 'Ext 441');
-    assert.strictEqual(pcAsset.ipAddress, '10.20.14.88');
-    assert.strictEqual(pcAsset.macAddress, '00:1A:2B:3C:4D:EE');
+    assert.strictEqual(pcAsset.networkConfig?.ipAddress, '10.20.14.88');
+    assert.strictEqual(pcAsset.networkConfig?.macAddress, '00:1A:2B:3C:4D:EE');
     assert.strictEqual(pcAsset.amcApplicable, true);
     assert.strictEqual(pcAsset.amcContractId, 'AMC-2024-DELL-01');
     assert.ok(pcAsset.computerConfig, 'PC computerConfig should be populated');

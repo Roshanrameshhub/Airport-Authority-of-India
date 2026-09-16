@@ -696,15 +696,11 @@ export const importService = {
           warrantyEndDate: row.warrantyEndDate ? normalizeExcelDate(row.warrantyEndDate) : new Date(),
           amcApplicable: Boolean(row.amcApplicable === true || row.amcApplicable === 'true' || (row.amcContractId && row.amcContractId !== 'N/A')),
           amcContractId: row.amcContractId || '',
-          operatingSystem: row.operatingSystem || 'Windows 11 Pro',
-          osVersion: row.osVersion || '',
           department: row.department,
           location: row.location || 'Chennai Airport',
           floor: row.floor,
           room: row.room || '',
           intercom: row.intercom || '',
-          ipAddress: row.ipAddress || '',
-          macAddress: row.macAddress || '',
           remarks: row.remarks ? `${row.remarks} [Multi-Excel Ingested]` : 'Ingested via Clean Master Data Pipeline',
           status: 'AVAILABLE',
           condition: row.condition || 'GOOD',
@@ -715,13 +711,22 @@ export const importService = {
           customFields: row.customFields || {}
         };
 
-        if (row.processor || row.ramSizeGb || row.storageCapacityGb || row.hostname || ['DESKTOP', 'LAPTOP', 'SERVER', 'WORKSTATION'].includes(derivedType)) {
+        if (row.processor || row.ramSizeGb || row.storageCapacityGb || row.hostname || row.operatingSystem || ['DESKTOP', 'LAPTOP', 'SERVER', 'WORKSTATION'].includes(derivedType)) {
           assetData.computerConfig = {
             processor: row.processor || '',
             ramSizeGb: row.ramSizeGb ? Number(String(row.ramSizeGb).replace(/[^0-9]/g, '')) : 16,
             storageCapacityGb: row.storageCapacityGb ? Number(String(row.storageCapacityGb).replace(/[^0-9]/g, '')) : 512,
             storageType: row.storageType || 'SSD',
-            hostname: row.hostname || ''
+            hostname: row.hostname || '',
+            operatingSystem: row.operatingSystem || 'Windows 11 Pro',
+            osVersion: row.osVersion || ''
+          };
+        }
+
+        if (row.ipAddress || row.macAddress || ['DESKTOP', 'LAPTOP', 'SERVER', 'NETWORK', 'WORKSTATION', 'PRINTER'].includes(derivedType)) {
+          assetData.networkConfig = {
+            ipAddress: row.ipAddress || '',
+            macAddress: row.macAddress || ''
           };
         }
 

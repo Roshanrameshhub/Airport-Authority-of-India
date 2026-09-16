@@ -430,15 +430,15 @@ export default function AssetInventory() {
       warrantyEndDate: asset.warrantyEndDate ? new Date(asset.warrantyEndDate).toISOString().split('T')[0] : '',
       amcApplicable: Boolean(asset.amcApplicable),
       amcContractId: asset.amcContractId || '',
-      operatingSystem: asset.operatingSystem || 'N/A',
-      osVersion: asset.osVersion || '',
+      operatingSystem: asset.computerConfig?.operatingSystem || asset.operatingSystem || 'N/A',
+      osVersion: asset.computerConfig?.osVersion || asset.osVersion || '',
       department: asset.department,
       location: asset.location || 'Chennai Airport',
       floor: asset.floor,
       room: asset.room || '',
       intercom: asset.intercom || '',
-      ipAddress: asset.ipAddress || '',
-      macAddress: asset.macAddress || '',
+      ipAddress: asset.networkConfig?.ipAddress || asset.ipAddress || '',
+      macAddress: asset.networkConfig?.macAddress || asset.macAddress || '',
       status: asset.status || 'AVAILABLE',
       condition: asset.condition || 'GOOD',
       remarks: asset.remarks || '',
@@ -477,7 +477,18 @@ export default function AssetInventory() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(editFormData)
+        body: JSON.stringify({
+          ...editFormData,
+          computerConfig: {
+            ...editFormData.computerConfig,
+            operatingSystem: editFormData.operatingSystem,
+            osVersion: editFormData.osVersion
+          },
+          networkConfig: {
+            ipAddress: editFormData.ipAddress,
+            macAddress: editFormData.macAddress
+          }
+        })
       });
       const data = await res.json();
 
@@ -569,7 +580,18 @@ export default function AssetInventory() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          computerConfig: {
+            ...formData.computerConfig,
+            operatingSystem: formData.operatingSystem,
+            osVersion: formData.osVersion
+          },
+          networkConfig: {
+            ipAddress: formData.ipAddress,
+            macAddress: formData.macAddress
+          }
+        })
       });
       const data = await res.json();
 
@@ -1609,11 +1631,11 @@ export default function AssetInventory() {
                     <div className="drawer-spec-grid">
                       <div style={{ minWidth: 0 }}>
                         <span className="drawer-spec-label">Operating System</span>
-                        <strong className="drawer-spec-value">{activeAsset.operatingSystem || 'N/A'} {activeAsset.osVersion || ''}</strong>
+                        <strong className="drawer-spec-value">{activeAsset.computerConfig?.operatingSystem || activeAsset.operatingSystem || 'N/A'} {activeAsset.computerConfig?.osVersion || activeAsset.osVersion || ''}</strong>
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span className="drawer-spec-label">Static / DHCP IP</span>
-                        <code style={{ fontWeight: 700, color: 'var(--color-text-main)' }}>{activeAsset.ipAddress || 'Not Assigned'}</code>
+                        <code style={{ fontWeight: 700, color: 'var(--color-text-main)' }}>{activeAsset.networkConfig?.ipAddress || activeAsset.ipAddress || 'Not Assigned'}</code>
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <span className="drawer-spec-label">Physical MAC Address</span>

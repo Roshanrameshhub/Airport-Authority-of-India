@@ -57,8 +57,8 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
     assert.ok('serialNumber' in asset, 'Serial Number must exist');
     assert.ok('installDate' in asset, 'Install Date must exist');
     assert.ok('warrantyEndDate' in asset, 'Warranty of Asset must exist');
-    assert.ok('operatingSystem' in asset, 'Type of OS must exist');
-    assert.ok('osVersion' in asset, 'OS Version must exist');
+    assert.ok((asset.computerConfig && 'operatingSystem' in asset.computerConfig) || 'operatingSystem' in asset, 'Type of OS must exist');
+    assert.ok((asset.computerConfig && 'osVersion' in asset.computerConfig) || 'osVersion' in asset, 'OS Version must exist');
     assert.ok('remarks' in asset, 'Remarks must exist');
 
     // Verify system fields
@@ -165,8 +165,10 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
         installDate: '2026-02-01',
         warrantyStartDate: '2026-02-01',
         warrantyEndDate: '2029-02-01',
-        operatingSystem: 'Red Hat Enterprise Linux',
-        osVersion: '9.4 Workstation',
+        computerConfig: {
+          operatingSystem: 'Red Hat Enterprise Linux',
+          osVersion: '9.4 Workstation'
+        },
         department: 'Communication, Navigation & Surveillance',
         floor: '2nd Floor, Technical Block',
         remarks: 'High-performance radar simulation graphics unit',
@@ -178,7 +180,7 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
     const body = await res.json();
     assert.strictEqual(body.success, true);
     assert.strictEqual(body.data.assetId, 'AAI-REG-PC-2026-9001');
-    assert.strictEqual(body.data.operatingSystem, 'Red Hat Enterprise Linux');
+    assert.strictEqual(body.data.computerConfig.operatingSystem, 'Red Hat Enterprise Linux');
     assert.strictEqual(body.data.warrantyStatus, 'ACTIVE');
   });
 
@@ -199,7 +201,9 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
         installDate: '2026-01-10',
         warrantyEndDate: '2028-01-10',
         department: 'Information Technology',
-        floor: '2nd Floor, Admin Block'
+        floor: '2nd Floor, Admin Block',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     assert.strictEqual(res.status, 201);
@@ -225,7 +229,9 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
         installDate: '2026-01-01',
         warrantyEndDate: '2028-01-01',
         department: 'IT',
-        floor: '1st Floor'
+        floor: '1st Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     assert.strictEqual(res.status, 409);
@@ -251,7 +257,9 @@ test('Phase 4 Core Asset Management Test Suite', async (t) => {
         installDate: '2026-01-01',
         warrantyEndDate: '2028-01-01',
         department: 'IT',
-        floor: '1st Floor'
+        floor: '1st Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
     assert.strictEqual(res.status, 403);

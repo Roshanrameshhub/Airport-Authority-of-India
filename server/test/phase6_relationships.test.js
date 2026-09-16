@@ -161,7 +161,9 @@ test('Phase 6 Component Relationships & Assembly Tracking Test Suite', async (t)
         installDate: '2026-01-01',
         warrantyEndDate: '2029-01-01',
         department: 'Information Technology',
-        floor: '2nd Floor'
+        floor: '2nd Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
 
@@ -179,7 +181,9 @@ test('Phase 6 Component Relationships & Assembly Tracking Test Suite', async (t)
         installDate: '2026-01-01',
         warrantyEndDate: '2029-01-01',
         department: 'Information Technology',
-        floor: '2nd Floor'
+        floor: '2nd Floor',
+        status: 'AVAILABLE',
+        condition: 'NEW'
       })
     });
 

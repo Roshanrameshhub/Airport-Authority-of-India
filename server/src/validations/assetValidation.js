@@ -32,9 +32,7 @@ export const createAssetSchema = z.object({
   model: z.string({
     required_error: 'Model is required'
   }).min(1, 'Model is required').trim(),
-  serialNumber: z.string({
-    required_error: 'Serial Number is required'
-  }).min(2, 'Serial Number must be at least 2 characters').trim(),
+  serialNumber: z.string().optional().or(z.literal('')),
   oldAssetId: z.string().optional().default(''),
   qrCode: z.string().optional().default(''),
   barcode: z.string().optional().default(''),
@@ -80,11 +78,7 @@ export const createAssetSchema = z.object({
   room: z.string().optional().default(''),
   intercom: z.string().optional().default(''),
 
-  // Operating System & Network
-  operatingSystem: z.string().optional().default('N/A'),
-  osVersion: z.string().optional().default(''),
-  ipAddress: z.string().optional().default(''),
-  macAddress: z.string().optional().default(''),
+  // Root OS & Network fields removed
 
   // Lifecycle
   remarks: z.string().optional().default(''),
@@ -100,7 +94,7 @@ export const createAssetSchema = z.object({
     'WRITE_OFF',
     'RETIRED',
     'DISPOSED'
-  ]).optional().default('AVAILABLE'),
+  ], { required_error: 'Asset Status is required' }),
   condition: z.enum([
     'NEW',
     'EXCELLENT',
@@ -111,7 +105,7 @@ export const createAssetSchema = z.object({
     'UNSERVICEABLE',
     'UNUSABLE',
     'OBSOLETE'
-  ]).optional().default('GOOD'),
+  ], { required_error: 'Asset Condition is required' }),
 
   // Custodian
   currentEmployeeId: z.string().optional().or(z.literal('')),
@@ -164,8 +158,19 @@ export const createAssetSchema = z.object({
     totalPorts: z.number().optional().nullable(),
     portSpeed: z.string().optional().default('1 Gbps'),
     managementIp: z.string().optional().default(''),
+    ipAddress: z.string().optional().default(''),
+    macAddress: z.string().optional().default(''),
     firmwareVersion: z.string().optional().default(''),
     isManaged: z.boolean().optional().default(true)
+  }).partial().optional().default({}),
+  softwareConfig: z.object({
+    osKey: z.string().optional().default(''),
+    officeSuite: z.string().optional().default(''),
+    officeKey: z.string().optional().default(''),
+    adobeSoftware: z.string().optional().default(''),
+    adobeKey: z.string().optional().default(''),
+    antivirus: z.string().optional().default(''),
+    antivirusKey: z.string().optional().default('')
   }).partial().optional().default({}),
   specifications: z.record(z.any()).optional().default({}),
   customFields: z.record(z.any()).optional().default({})

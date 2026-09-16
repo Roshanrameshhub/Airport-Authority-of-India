@@ -537,7 +537,7 @@ test('Multi-Excel Data Ingestion and Clean Master Data Pipeline Test Suite', asy
     const checkBody = await checkRes.json();
     assert.strictEqual(checkBody.data.length, 1);
     assert.strictEqual(checkBody.data[0].serialNumber, 'SN-MULTI-101');
-    assert.strictEqual(checkBody.data[0].operatingSystem, 'Windows 11 Enterprise');
+    assert.strictEqual(checkBody.data[0].computerConfig?.operatingSystem, 'Windows 11 Enterprise');
 
     finalCommitToken = multiFileToken;
   });

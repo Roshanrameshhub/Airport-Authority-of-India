@@ -99,9 +99,11 @@ test('Phase 2 Rich Common Asset Model Test Suite', async (t) => {
         floor: '2nd Floor, Technical Block',
         room: 'CNS Radar Automation Lab 206',
         intercom: '2499',
-        operatingSystem: 'Windows 11 Pro',
-        osVersion: '23H2',
-        ipAddress: '10.20.14.99',
+        computerConfig: {
+          operatingSystem: 'Windows 11 Pro',
+          osVersion: '23H2',
+          ipAddress: '10.20.14.99'
+        },
         status: 'AVAILABLE',
         condition: 'NEW',
         remarks: 'Procured under CNS Radar upgrade scheme'
@@ -121,7 +123,7 @@ test('Phase 2 Rich Common Asset Model Test Suite', async (t) => {
     assert.strictEqual(created.purchaseCost, 74500);
     assert.strictEqual(created.room, 'CNS Radar Automation Lab 206');
     assert.strictEqual(created.intercom, '2499');
-    assert.strictEqual(created.ipAddress, '10.20.14.99');
+    assert.strictEqual(created.computerConfig.ipAddress, '10.20.14.99');
     assert.strictEqual(created.condition, 'NEW');
     assert.strictEqual(created.status, 'AVAILABLE');
   });

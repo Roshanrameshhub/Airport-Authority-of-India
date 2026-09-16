@@ -422,6 +422,7 @@ export const assignmentRepository = {
     if (cascadeComponents) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
+        if (comp.relationshipType !== 'COMPONENT_OF') continue;
         if (comp.asset && comp.asset.status === 'AVAILABLE') {
           try {
             await assignmentRepository.assignAssetInternal({
@@ -592,6 +593,7 @@ export const assignmentRepository = {
     if (cascadeComponents) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
+        if (comp.relationshipType !== 'COMPONENT_OF') continue;
         if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
           try {
             await assignmentRepository.transferAssetInternal({
@@ -698,6 +700,7 @@ export const assignmentRepository = {
     if (cascadeComponents) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
+        if (comp.relationshipType !== 'COMPONENT_OF') continue;
         if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
           try {
             await assignmentRepository.returnAssetInternal({
