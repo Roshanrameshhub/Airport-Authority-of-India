@@ -1,4 +1,4 @@
-import { assetRepository } from '../repositories/assetRepository.js';
+﻿import { assetRepository } from '../repositories/assetRepository.js';
 import { employeeRepository } from '../repositories/employeeRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
 import { assignmentRepository } from '../repositories/assignmentRepository.js';
@@ -326,6 +326,34 @@ export const deleteAsset = async (req, res, next) => {
     });
 
     return sendSuccess(res, null, 'Asset successfully archived. Historical custody remains preserved.');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRetiredAssets = async (req, res, next) => {
+  try {
+    const {
+      search = '',
+      category = '',
+      department = '',
+      page = 1,
+      limit = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const { items, total } = await assetRepository.findRetired({
+      search,
+      category,
+      department,
+      page: Number(page),
+      limit: Number(limit),
+      sortBy,
+      sortOrder
+    });
+
+    return sendPaginated(res, items, { page, limit, total }, 'Retired assets retrieved successfully');
   } catch (error) {
     next(error);
   }

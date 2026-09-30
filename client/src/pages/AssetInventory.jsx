@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Boxes, 
@@ -32,7 +32,8 @@ import {
   Calendar,
   Clock,
   DollarSign,
-  Activity
+  Activity,
+  PackageOpen
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import { SearchInput, SelectInput, ClearFilterButton } from '../components/ui/FormControls';
@@ -274,6 +275,17 @@ export default function AssetInventory() {
   const [notification, setNotification] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // Retired Assets View State
+  const [isRetiredModalOpen, setIsRetiredModalOpen] = useState(false);
+  const [retiredAssets, setRetiredAssets] = useState([]);
+  const [retiredLoading, setRetiredLoading] = useState(false);
+  const [retiredPage, setRetiredPage] = useState(1);
+  const [retiredTotal, setRetiredTotal] = useState(0);
+  const [retiredLoadingMore, setRetiredLoadingMore] = useState(false);
+  const [retiredSearch, setRetiredSearch] = useState('');
+  const [retiredCategory, setRetiredCategory] = useState('');
+  const [retiredDept, setRetiredDept] = useState('');
+
   const fetchFiltersMaster = async () => {
     try {
       const [catRes, empRes, deptRes, locRes, vendRes, typeRes] = await Promise.all([
@@ -363,6 +375,16 @@ export default function AssetInventory() {
     }, 250);
     return () => clearTimeout(delayDebounce);
   }, [search, selectedCategory, selectedAssetType, selectedDept, selectedStatus, selectedWarranty, selectedAmc, selectedVendor, selectedLocation, token]);
+
+  // Re-fetch retired assets when modal filters change (only when modal is open)
+  useEffect(() => {
+    if (!isRetiredModalOpen) return;
+    const delayDebounce = setTimeout(() => {
+      setRetiredPage(1);
+      fetchRetiredAssets(1, false);
+    }, 250);
+    return () => clearTimeout(delayDebounce);
+  }, [retiredSearch, retiredCategory, retiredDept, isRetiredModalOpen]);
 
   const deriveAssetTypeFromCategory = (catName = '') => {
     const cat = (catName || '').toLowerCase();
@@ -620,7 +642,7 @@ export default function AssetInventory() {
 
     try {
       const res = await fetch(`/api/v1/assets/${assetId}/retire`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -637,6 +659,50 @@ export default function AssetInventory() {
     }
   };
 
+  const fetchRetiredAssets = async (pageNum = 1, isLoadMore = false) => {
+    if (isLoadMore) {
+      setRetiredLoadingMore(true);
+    } else {
+      setRetiredLoading(true);
+    }
+    try {
+      const params = new URLSearchParams();
+      params.append('page', String(pageNum));
+      params.append('limit', '20');
+      if (retiredSearch) params.append('search', retiredSearch);
+      if (retiredCategory) params.append('category', retiredCategory);
+      if (retiredDept) params.append('department', retiredDept);
+
+      const res = await fetch(/api/v1/assets/retired?, {
+        headers: { Authorization: Bearer  }
+      });
+      const data = await res.json();
+      if (data.success) {
+        const items = Array.isArray(data.data) ? data.data : (data.data?.items || []);
+        if (isLoadMore) {
+          setRetiredAssets(prev => [...prev, ...items]);
+        } else {
+          setRetiredAssets(items);
+        }
+        setRetiredTotal(data.pagination?.total ?? items.length);
+        setRetiredPage(pageNum);
+      }
+    } catch (err) {
+      console.error('Error fetching retired assets:', err);
+    } finally {
+      setRetiredLoading(false);
+      setRetiredLoadingMore(false);
+    }
+  };
+
+  const handleOpenRetiredModal = () => {
+    setIsRetiredModalOpen(true);
+    setRetiredSearch('');
+    setRetiredCategory('');
+    setRetiredDept('');
+    setRetiredPage(1);
+    fetchRetiredAssets(1, false);
+  };
   const handleOpenDrawer = async (asset) => {
     setActiveAsset(asset);
     setIsDrawerOpen(true);
@@ -1045,6 +1111,10 @@ export default function AssetInventory() {
           <ClipboardCheck size={15} />
           <span>Physical Verification</span>
         </button>
+        <button onClick={handleOpenRetiredModal} className="btn btn-secondary btn-sm" id="btn-retired-assets" title="View Retired &amp; Decommissioned Assets">
+          <PackageOpen size={15} />
+          <span>Retired Assets</span>
+        </button>
         <button onClick={handleExportExcel} className="btn btn-secondary btn-sm" id="export-excel-btn">
           <Download size={15} />
           <span>Export</span>
@@ -1106,7 +1176,8 @@ export default function AssetInventory() {
               { value: 'AVAILABLE', label: 'AVAILABLE (In Stock)' },
               { value: 'ASSIGNED', label: 'ASSIGNED (In Custody)' },
               { value: 'UNDER_MAINTENANCE', label: 'UNDER MAINTENANCE' },
-              { value: 'RETIRED', label: 'RETIRED' }
+              { value: 'UNDER_REPAIR', label: 'UNDER REPAIR' },
+              { value: 'GODOWN', label: 'IN GODOWN / STORE' }
             ]}
           />
 
@@ -1162,7 +1233,7 @@ export default function AssetInventory() {
             placeholder="All Warranties"
             options={[
               { value: 'ACTIVE', label: 'ACTIVE Warranty' },
-              { value: 'EXPIRING_SOON', label: 'EXPIRING SOON (≤ 30d)' },
+              { value: 'EXPIRING_SOON', label: 'EXPIRING SOON (â‰¤ 30d)' },
               { value: 'EXPIRED', label: 'EXPIRED' }
             ]}
           />
@@ -1280,7 +1351,7 @@ export default function AssetInventory() {
                       {asset.department}
                     </div>
                     <div style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>
-                      {asset.location ? `${asset.location} • ` : ''}{asset.room ? `Room ${asset.room}, ` : ''}{asset.floor}
+                      {asset.location ? `${asset.location} â€¢ ` : ''}{asset.room ? `Room ${asset.room}, ` : ''}{asset.floor}
                     </div>
                   </td>
                   <td>
@@ -1373,7 +1444,7 @@ export default function AssetInventory() {
         <div className="drawer-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }}>
           <div className="drawer-content">
 
-            {/* ── DRAWER HEADER ── */}
+            {/* â”€â”€ DRAWER HEADER â”€â”€ */}
             <div className="drawer-header">
               <div style={{ minWidth: 0, flex: 1 }}>
                 <span className="badge badge-assigned" style={{ marginBottom: '4px', display: 'inline-block' }}>
@@ -1404,7 +1475,7 @@ export default function AssetInventory() {
               </div>
             </div>
 
-            {/* ── DRAWER NAVIGATION TABS ── */}
+            {/* â”€â”€ DRAWER NAVIGATION TABS â”€â”€ */}
             <div style={{
               display: 'flex',
               borderBottom: '1px solid var(--border-subtle)',
@@ -1449,13 +1520,13 @@ export default function AssetInventory() {
               })}
             </div>
 
-            {/* ── DRAWER BODY ── */}
+            {/* â”€â”€ DRAWER BODY â”€â”€ */}
             <div className="drawer-body">
 
-              {/* ══════════════ TAB 1: OVERVIEW & PLACEMENT ══════════════ */}
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 1: OVERVIEW & PLACEMENT â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {drawerTab === 'overview' && (
                 <>
-                  {/* ── SECTION 1: CURRENT CUSTODIAN ── */}
+                  {/* â”€â”€ SECTION 1: CURRENT CUSTODIAN â”€â”€ */}
                   <section style={{ background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', padding: '16px' }}>
                     <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-brand-600)', marginBottom: '12px' }}>
                       Current Custodian / Holder
@@ -1500,7 +1571,7 @@ export default function AssetInventory() {
                           disabled={pdfLoading}
                         >
                           <FileText size={14} />
-                          <span>{pdfLoading ? 'Generating PDF…' : 'Download Handover Certificate (PDF)'}</span>
+                          <span>{pdfLoading ? 'Generating PDFâ€¦' : 'Download Handover Certificate (PDF)'}</span>
                         </button>
                       </>
                     ) : activeAsset.status === 'RETIRED' ? (
@@ -1520,12 +1591,12 @@ export default function AssetInventory() {
                       </>
                     ) : (
                       <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                        This item is currently in the IT store pool — not assigned to any individual.
+                        This item is currently in the IT store pool â€” not assigned to any individual.
                       </div>
                     )}
                   </section>
 
-                  {/* ── SECTION 2: HARDWARE SPECIFICATIONS ── */}
+                  {/* â”€â”€ SECTION 2: HARDWARE SPECIFICATIONS â”€â”€ */}
                   <section>
                     <h3 className="drawer-section-heading">Hardware Specifications</h3>
                     <div className="drawer-spec-grid">
@@ -1571,7 +1642,7 @@ export default function AssetInventory() {
                     </div>
                   </section>
 
-                  {/* ── SECTION 3: PROCUREMENT & SUPPLY ORDER ── */}
+                  {/* â”€â”€ SECTION 3: PROCUREMENT & SUPPLY ORDER â”€â”€ */}
                   <section>
                     <h3 className="drawer-section-heading">Procurement &amp; Supply Order</h3>
                     <div className="drawer-spec-grid">
@@ -1592,13 +1663,13 @@ export default function AssetInventory() {
                       <div style={{ minWidth: 0 }}>
                         <span className="drawer-spec-label">Purchase Cost</span>
                         <strong className="drawer-spec-value" style={{ color: 'var(--color-brand-700)' }}>
-                          {activeAsset.purchaseCost ? `₹${Number(activeAsset.purchaseCost).toLocaleString('en-IN')}` : 'N/A'}
+                          {activeAsset.purchaseCost ? `â‚¹${Number(activeAsset.purchaseCost).toLocaleString('en-IN')}` : 'N/A'}
                         </strong>
                       </div>
                     </div>
                   </section>
 
-                  {/* ── SECTION 4: DEPLOYMENT & PHYSICAL LOCATION ── */}
+                  {/* â”€â”€ SECTION 4: DEPLOYMENT & PHYSICAL LOCATION â”€â”€ */}
                   <section>
                     <h3 className="drawer-section-heading">Deployment &amp; Placement</h3>
                     <div className="drawer-spec-grid">
@@ -1625,7 +1696,7 @@ export default function AssetInventory() {
                     </div>
                   </section>
 
-                  {/* ── SECTION 5: NETWORK & OPERATING ENVIRONMENT ── */}
+                  {/* â”€â”€ SECTION 5: NETWORK & OPERATING ENVIRONMENT â”€â”€ */}
                   <section>
                     <h3 className="drawer-section-heading">Network &amp; Communication</h3>
                     <div className="drawer-spec-grid">
@@ -1644,7 +1715,7 @@ export default function AssetInventory() {
                     </div>
                   </section>
 
-                  {/* ── SECTION 6: LIFECYCLE, WARRANTY & AMC ── */}
+                  {/* â”€â”€ SECTION 6: LIFECYCLE, WARRANTY & AMC â”€â”€ */}
                   <section>
                     <h3 className="drawer-section-heading">Lifecycle, Warranty &amp; AMC</h3>
                     <div className="drawer-spec-grid">
@@ -1685,7 +1756,7 @@ export default function AssetInventory() {
                     </div>
                   </section>
 
-                  {/* ── SECTION 7: REMARKS ── */}
+                  {/* â”€â”€ SECTION 7: REMARKS â”€â”€ */}
                   {activeAsset.remarks && (
                     <section>
                       <h3 className="drawer-section-heading">Remarks &amp; Operational Notes</h3>
@@ -1705,7 +1776,7 @@ export default function AssetInventory() {
                     </section>
                   )}
 
-                  {/* ── SECTION 8: QUICK ACTIONS ── */}
+                  {/* â”€â”€ SECTION 8: QUICK ACTIONS â”€â”€ */}
                   <section style={{ paddingTop: '4px', borderTop: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
@@ -1734,7 +1805,7 @@ export default function AssetInventory() {
                 </>
               )}
 
-              {/* ══════════════ TAB 2: TECHNICAL SPECIFICATIONS ══════════════ */}
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 2: TECHNICAL SPECIFICATIONS â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {drawerTab === 'specs' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {/* Computer / Server Config */}
@@ -1863,7 +1934,7 @@ export default function AssetInventory() {
                 </div>
               )}
 
-              {/* ══════════════ TAB 3: COMPONENT LINKS & ASSEMBLY ══════════════ */}
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 3: COMPONENT LINKS & ASSEMBLY â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {drawerTab === 'components' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {/* Host Workstation Parent if this is a child component */}
@@ -1971,7 +2042,7 @@ export default function AssetInventory() {
                 </div>
               )}
 
-              {/* ══════════════ TAB 4: COMPLETE AUDIT TIMELINE ══════════════ */}
+              {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â• TAB 4: COMPLETE AUDIT TIMELINE â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
               {drawerTab === 'timeline' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {/* Category Filter Pills */}
@@ -2088,7 +2159,7 @@ export default function AssetInventory() {
                 .filter(a => a.assetId !== activeAsset?.assetId && (a.status === 'AVAILABLE' || a.status === 'ASSIGNED'))
                 .map(a => (
                   <option key={a.assetId} value={a.assetId}>
-                    {a.assetId} • {a.assetName} ({a.category} • SN: {a.serialNumber})
+                    {a.assetId} â€¢ {a.assetName} ({a.category} â€¢ SN: {a.serialNumber})
                   </option>
                 ))}
             </select>
@@ -2128,7 +2199,7 @@ export default function AssetInventory() {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         title="Register IT Equipment"
-        subtitle="AAI Central Asset Registry • Full Specification & Master Data Linkage"
+        subtitle="AAI Central Asset Registry â€¢ Full Specification & Master Data Linkage"
         size="xl"
         id="register-asset-modal"
         footer={
@@ -2233,7 +2304,7 @@ export default function AssetInventory() {
         </datalist>
 
         <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {/* ════════ TAB 1: BASIC & IDENTITY ════════ */}
+          {/* â•â•â•â•â•â•â•â• TAB 1: BASIC & IDENTITY â•â•â•â•â•â•â•â• */}
           {registerModalTab === 'general' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--space-3)' }}>
@@ -2384,7 +2455,7 @@ export default function AssetInventory() {
             </>
           )}
 
-          {/* ════════ TAB 2: LOCATION & PLACEMENT ════════ */}
+          {/* â•â•â•â•â•â•â•â• TAB 2: LOCATION & PLACEMENT â•â•â•â•â•â•â•â• */}
           {registerModalTab === 'location' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -2458,7 +2529,7 @@ export default function AssetInventory() {
             </>
           )}
 
-          {/* ════════ TAB 3: PROCUREMENT & AMC ════════ */}
+          {/* â•â•â•â•â•â•â•â• TAB 3: PROCUREMENT & AMC â•â•â•â•â•â•â•â• */}
           {registerModalTab === 'procurement' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -2582,7 +2653,7 @@ export default function AssetInventory() {
             </>
           )}
 
-          {/* ════════ TAB 4: HARDWARE & NETWORK ════════ */}
+          {/* â•â•â•â•â•â•â•â• TAB 4: HARDWARE & NETWORK â•â•â•â•â•â•â•â• */}
           {registerModalTab === 'technical' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -2814,7 +2885,7 @@ export default function AssetInventory() {
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           title="Edit Equipment Specifications"
-          subtitle={`Asset Tag: ${editFormData.assetId} • Full Lifecycle & Hardware Configuration`}
+          subtitle={`Asset Tag: ${editFormData.assetId} â€¢ Full Lifecycle & Hardware Configuration`}
           size="xl"
           id="edit-asset-modal"
           footer={
@@ -2919,7 +2990,7 @@ export default function AssetInventory() {
           </datalist>
 
           <form onSubmit={handleEditFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            {/* ════════ TAB 1: BASIC & IDENTITY ════════ */}
+            {/* â•â•â•â•â•â•â•â• TAB 1: BASIC & IDENTITY â•â•â•â•â•â•â•â• */}
             {editModalTab === 'general' && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 'var(--space-3)' }}>
@@ -3083,7 +3154,7 @@ export default function AssetInventory() {
               </>
             )}
 
-            {/* ════════ TAB 2: LOCATION & PLACEMENT ════════ */}
+            {/* â•â•â•â•â•â•â•â• TAB 2: LOCATION & PLACEMENT â•â•â•â•â•â•â•â• */}
             {editModalTab === 'location' && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -3154,7 +3225,7 @@ export default function AssetInventory() {
               </>
             )}
 
-            {/* ════════ TAB 3: PROCUREMENT & AMC ════════ */}
+            {/* â•â•â•â•â•â•â•â• TAB 3: PROCUREMENT & AMC â•â•â•â•â•â•â•â• */}
             {editModalTab === 'procurement' && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -3277,7 +3348,7 @@ export default function AssetInventory() {
               </>
             )}
 
-            {/* ════════ TAB 4: HARDWARE & NETWORK ════════ */}
+            {/* â•â•â•â•â•â•â•â• TAB 4: HARDWARE & NETWORK â•â•â•â•â•â•â•â• */}
             {editModalTab === 'technical' && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -3508,7 +3579,7 @@ export default function AssetInventory() {
           isOpen={isTagModalOpen}
           onClose={() => setIsTagModalOpen(false)}
           title="Physical Equipment Identification Tag"
-          subtitle="Civil Aviation Regulatory Standard • Barcode / QR Interlock"
+          subtitle="Civil Aviation Regulatory Standard â€¢ Barcode / QR Interlock"
           size="md"
           id="asset-tag-modal"
           footer={
@@ -3553,7 +3624,7 @@ export default function AssetInventory() {
                 AIRPORTS AUTHORITY OF INDIA
               </div>
               <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>
-                REGIONAL OFFICE • IT ASSET IDENTIFICATION TAG
+                REGIONAL OFFICE â€¢ IT ASSET IDENTIFICATION TAG
               </div>
             </div>
 
@@ -3623,7 +3694,7 @@ export default function AssetInventory() {
 
             {/* Footer */}
             <div style={{ background: '#00205B', color: '#ffffff', textAlign: 'center', fontSize: '0.6rem', padding: '4px', letterSpacing: '0.5px' }}>
-              PROPERTY OF AAI • TAMPERING OR REMOVAL IS A STRICT REGULATORY VIOLATION
+              PROPERTY OF AAI â€¢ TAMPERING OR REMOVAL IS A STRICT REGULATORY VIOLATION
             </div>
           </div>
         </Modal>
@@ -3635,7 +3706,7 @@ export default function AssetInventory() {
           isOpen={isVerificationModalOpen}
           onClose={() => setIsVerificationModalOpen(false)}
           title="Annual Physical Verification Campaign"
-          subtitle="Institutional Equipment Audit & Discrepancy Tracking (TECHNICALLY RECOMMENDED — BUSINESS CONFIRMATION REQUIRED)"
+          subtitle="Institutional Equipment Audit & Discrepancy Tracking (TECHNICALLY RECOMMENDED â€” BUSINESS CONFIRMATION REQUIRED)"
           size="lg"
           id="verification-campaign-modal"
           footer={
@@ -3866,6 +3937,211 @@ export default function AssetInventory() {
               </div>
             )}
           </div>
+        </Modal>
+      )}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* RETIRED ASSETS MODAL                                              */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {isRetiredModalOpen && (
+        <Modal
+          isOpen={isRetiredModalOpen}
+          onClose={() => setIsRetiredModalOpen(false)}
+          title="Retired & Decommissioned Assets"
+          subtitle={${retiredTotal} retired asset(s) preserved in database for audit / history}
+          size="xl"
+          id="retired-assets-modal"
+        >
+          {/* ── Filter Bar ── */}
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
+            <div style={{ flex: '2 1 220px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search ID, name, serial, make, model..."
+                value={retiredSearch}
+                onChange={(e) => setRetiredSearch(e.target.value)}
+                id="retired-search-input"
+              />
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <select
+                className="form-input"
+                value={retiredCategory}
+                onChange={(e) => setRetiredCategory(e.target.value)}
+                id="retired-category-filter"
+              >
+                <option value="">All Categories</option>
+                {categories.map(c => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <select
+                className="form-input"
+                value={retiredDept}
+                onChange={(e) => setRetiredDept(e.target.value)}
+                id="retired-dept-filter"
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map(d => (
+                  <option key={d.name} value={d.name}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            {(retiredSearch || retiredCategory || retiredDept) && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => { setRetiredSearch(''); setRetiredCategory(''); setRetiredDept(''); }}
+                id="clear-retired-filters-btn"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* ── Table ── */}
+          {retiredLoading ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px' }}>
+              <div className="pulse-dot" style={{ margin: '0 auto 12px' }} />
+              <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading retired assets...</span>
+            </div>
+          ) : retiredAssets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--color-text-muted)' }}>
+              <PackageOpen size={40} style={{ marginBottom: '12px', opacity: 0.4 }} />
+              <div style={{ fontWeight: 600, marginBottom: '4px' }}>No retired assets found</div>
+              <div style={{ fontSize: '0.8125rem' }}>
+                {retiredSearch || retiredCategory || retiredDept
+                  ? 'No retired assets match the current filters.'
+                  : 'No assets have been decommissioned yet.'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" id="retired-assets-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Asset ID</th>
+                    <th>Asset Name</th>
+                    <th>Category</th>
+                    <th>Serial Number</th>
+                    <th>Previous Custodian</th>
+                    <th>Department</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Retirement Date</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retiredAssets.map((asset) => (
+                    <tr key={asset.assetId} id={
+etired-row-}>
+                      <td>
+                        <code style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-brand-600)', fontFamily: 'monospace' }}>
+                          {asset.assetId}
+                        </code>
+                        {asset.oldAssetId && (
+                          <div>
+                            <span className="badge badge-neutral" style={{ fontSize: '0.62rem' }} title="Legacy ID">
+                              Old: {asset.oldAssetId}
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: '0.825rem', color: 'var(--color-text-main)' }}>
+                          {asset.assetName}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                          {asset.make} • {asset.model}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
+                          {asset.category}
+                        </span>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                          {asset.serialNumber || '—'}
+                        </code>
+                      </td>
+                      <td>
+                        {asset.currentEmployeeName ? (
+                          <div>
+                            <div style={{ fontSize: '0.825rem', fontWeight: 600 }}>{asset.currentEmployeeName}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                              {asset.currentDesignation} ({asset.currentEmployeeId})
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.825rem' }}>{asset.department}</div>
+                        {asset.floor && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{asset.floor}</div>
+                        )}
+                      </td>
+                      <td style={{ fontSize: '0.825rem' }}>
+                        {asset.location || '—'}
+                      </td>
+                      <td>
+                        <span className="badge badge-neutral" style={{ fontSize: '0.65rem' }}>
+                          {asset.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                        {asset.updatedAt
+                          ? new Date(asset.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="action-btn-group">
+                          <TableActionBtn
+                            icon={Eye}
+                            onClick={() => { setIsRetiredModalOpen(false); handleOpenDrawer(asset); }}
+                            title="View Full Asset Details"
+                            id={
+etired-view-btn-}
+                          />
+                          <TableActionBtn
+                            icon={FileText}
+                            onClick={() => handleDownloadRetirementRecord(asset.assetId)}
+                            title="Download Decommissioning Record (PDF)"
+                            id={
+etired-pdf-btn-}
+                            style={{ color: 'var(--color-text-muted)' }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── Load More ── */}
+          {!retiredLoading && retiredAssets.length > 0 && retiredAssets.length < retiredTotal && (
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-3)' }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={retiredLoadingMore}
+                onClick={() => {
+                  const nextPage = retiredPage + 1;
+                  fetchRetiredAssets(nextPage, true);
+                }}
+                id="load-more-retired-btn"
+              >
+                {retiredLoadingMore
+                  ? 'Loading...'
+                  : Load More ( of )}
+              </button>
+            </div>
+          )}
         </Modal>
       )}
     </div>

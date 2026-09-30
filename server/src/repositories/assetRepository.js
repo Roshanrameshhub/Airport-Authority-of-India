@@ -784,6 +784,9 @@ export const assetRepository = {
   retire: async (id, reason = 'End of useful lifecycle') => {
     const updateData = {
       status: 'RETIRED',
+      // Set isArchived: true so the asset is removed from active inventory
+      // but preserved in the database for audit/history purposes
+      isArchived: true,
       remarks: `${reason} (Retired on ${new Date().toISOString().split('T')[0]})`,
       currentEmployeeId: null,
       currentEmployeeName: '',
@@ -796,5 +799,73 @@ export const assetRepository = {
   delete: async (id) => {
     // Soft archive rather than hard delete to safeguard history
     return assetRepository.update(id, { isArchived: true });
+  },
+
+  /**
+   * Retrieve retired/decommissioned assets (isArchived: true)
+   * Supports search and pagination for the Retired Assets view.
+   */
+  findRetired: async ({
+    search = '',
+    category = '',
+    department = '',
+    page = 1,
+    limit = 20,
+    sortBy = 'updatedAt',
+    sortOrder = 'desc'
+  } = {}) => {
+    const skip = (Number(page) - 1) * Number(limit);
+
+    if (mongoose.connection.readyState === 1) {
+      const query = { isArchived: true };
+      if (category) query.category = category;
+      if (department) query.department = department;
+      if (search) {
+        const regex = new RegExp(escapeRegex(search), 'i');
+        query.$or = [
+          { assetId: regex },
+          { assetName: regex },
+          { serialNumber: regex },
+          { make: regex },
+          { model: regex },
+          { currentEmployeeName: regex },
+          { department: regex }
+        ];
+      }
+      const sortOptions = {};
+      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+      const items = await Asset.find(query).sort(sortOptions).skip(skip).limit(Number(limit));
+      const total = await Asset.countDocuments(query);
+      return { items, total };
+    }
+
+    // In-memory fallback
+    let list = Array.from(memoryAssets.values()).filter(a => a.isArchived === true);
+    if (category) list = list.filter(a => a.category === category);
+    if (department) list = list.filter(a => a.department === department);
+    if (search) {
+      const s = search.toLowerCase();
+      list = list.filter(a =>
+        (a.assetId && a.assetId.toLowerCase().includes(s)) ||
+        (a.assetName && a.assetName.toLowerCase().includes(s)) ||
+        (a.serialNumber && a.serialNumber.toLowerCase().includes(s)) ||
+        (a.make && a.make.toLowerCase().includes(s)) ||
+        (a.model && a.model.toLowerCase().includes(s)) ||
+        (a.currentEmployeeName && a.currentEmployeeName.toLowerCase().includes(s)) ||
+        (a.department && a.department.toLowerCase().includes(s))
+      );
+    }
+    list.sort((a, b) => {
+      const valA = a[sortBy] || '';
+      const valB = b[sortBy] || '';
+      if (sortOrder === 'asc') return valA > valB ? 1 : -1;
+      return valA < valB ? 1 : -1;
+    });
+    const total = list.length;
+    const items = list.slice(skip, skip + Number(limit)).map(item => ({
+      ...item,
+      warrantyStatus: calculateWarrantyStatus(item.warrantyEndDate)
+    }));
+    return { items, total };
   }
 };

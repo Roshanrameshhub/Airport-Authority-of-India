@@ -3,6 +3,7 @@ import {
   getAssets, 
   getAssetById, 
   getAssetTimeline,
+  getRetiredAssets,
   createAsset, 
   updateAsset, 
   transitionLifecycle,
@@ -17,6 +18,8 @@ const router = Router();
 
 // Asset Inventory & Management Routes
 router.get('/', protect, getAssets);
+// Retired assets – must be defined before /:id to avoid routing conflict
+router.get('/retired', protect, getRetiredAssets);
 router.get('/:id/timeline', protect, getAssetTimeline);
 router.get('/:id', protect, getAssetById);
 router.post('/', protect, authorize('ADMIN'), validate(createAssetSchema), createAsset);
