@@ -2,7 +2,10 @@ import { departmentRepository } from '../repositories/departmentRepository.js';
 import { categoryRepository } from '../repositories/categoryRepository.js';
 import { locationRepository } from '../repositories/locationRepository.js';
 import { vendorRepository } from '../repositories/vendorRepository.js';
-import { sendSuccess } from '../utils/apiResponse.js';
+import { makeRepository } from '../repositories/makeRepository.js';
+import { modelRepository } from '../repositories/modelRepository.js';
+import { technologyRepository } from '../repositories/technologyRepository.js';
+import { sendSuccess, sendError } from '../utils/apiResponse.js';
 
 /**
  * Canonical Category → Asset Type mapping for AAI AMS.
@@ -206,3 +209,238 @@ export const getCategoryAssetTypeMap = async (req, res, next) => {
     next(error);
   }
 };
+
+// ==========================================
+// MAKE / BRAND MASTER CONTROLLERS
+// ==========================================
+
+export const getMakes = async (req, res, next) => {
+  try {
+    const { category, assetType, isActive } = req.query;
+    const filter = {};
+    if (category) filter.category = String(category).trim();
+    if (assetType) filter.assetType = String(assetType).trim();
+    if (isActive !== undefined) filter.isActive = isActive === 'true' || isActive === true;
+    const makes = await makeRepository.findAll(filter);
+    return sendSuccess(res, makes, 'Makes retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createMake = async (req, res, next) => {
+  try {
+    const { name, code, categories, assetTypes, description, website, isActive } = req.body;
+    const existing = await makeRepository.findByName(name);
+    if (existing) {
+      return sendError(res, `Make / Brand '${name}' already exists`, 409);
+    }
+    const make = await makeRepository.create({
+      name,
+      code,
+      categories,
+      assetTypes,
+      description,
+      website,
+      isActive
+    });
+    return sendSuccess(res, make, 'Make created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateMake = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await makeRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Make / Brand not found', 404);
+    }
+    if (req.body.name && req.body.name.trim().toLowerCase() !== existing.name.toLowerCase()) {
+      const duplicate = await makeRepository.findByName(req.body.name);
+      if (duplicate && duplicate._id.toString() !== id.toString()) {
+        return sendError(res, `Make / Brand '${req.body.name}' already exists`, 409);
+      }
+    }
+    const updated = await makeRepository.update(id, req.body);
+    return sendSuccess(res, updated, 'Make updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteMake = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await makeRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Make / Brand not found', 404);
+    }
+    await makeRepository.delete(id);
+    return sendSuccess(res, null, 'Make deactivated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// MODEL MASTER CONTROLLERS
+// ==========================================
+
+export const getModels = async (req, res, next) => {
+  try {
+    const { make, assetType, category, isActive } = req.query;
+    const filter = {};
+    if (make) filter.make = String(make).trim();
+    if (assetType) filter.assetType = String(assetType).trim();
+    if (category) filter.category = String(category).trim();
+    if (isActive !== undefined) filter.isActive = isActive === 'true' || isActive === true;
+    const models = await modelRepository.findAll(filter);
+    return sendSuccess(res, models, 'Models retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createModel = async (req, res, next) => {
+  try {
+    const { name, make, category, assetType, technology, specifications, description, isActive } = req.body;
+    const existing = await modelRepository.findByNameAndMake(name, make, assetType);
+    if (existing) {
+      return sendError(res, `Model '${name}' for Make '${make}' already exists`, 409);
+    }
+    const model = await modelRepository.create({
+      name,
+      make,
+      category,
+      assetType,
+      technology,
+      specifications,
+      description,
+      isActive
+    });
+    return sendSuccess(res, model, 'Model created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateModel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await modelRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Model not found', 404);
+    }
+    const checkName = req.body.name || existing.name;
+    const checkMake = req.body.make || existing.make;
+    const checkType = req.body.assetType !== undefined ? req.body.assetType : existing.assetType;
+    if (
+      (req.body.name && req.body.name.trim().toLowerCase() !== existing.name.toLowerCase()) ||
+      (req.body.make && req.body.make.trim().toLowerCase() !== existing.make.toLowerCase()) ||
+      (req.body.assetType !== undefined && req.body.assetType.trim().toUpperCase() !== (existing.assetType || '').toUpperCase())
+    ) {
+      const duplicate = await modelRepository.findByNameAndMake(checkName, checkMake, checkType);
+      if (duplicate && duplicate._id.toString() !== id.toString()) {
+        return sendError(res, `Model '${checkName}' for Make '${checkMake}' already exists`, 409);
+      }
+    }
+    const updated = await modelRepository.update(id, req.body);
+    return sendSuccess(res, updated, 'Model updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteModel = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await modelRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Model not found', 404);
+    }
+    await modelRepository.delete(id);
+    return sendSuccess(res, null, 'Model deactivated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// TECHNOLOGY MASTER CONTROLLERS
+// ==========================================
+
+export const getTechnologies = async (req, res, next) => {
+  try {
+    const { assetType, category, isActive } = req.query;
+    const filter = {};
+    if (assetType) filter.assetType = String(assetType).trim();
+    if (category) filter.category = String(category).trim();
+    if (isActive !== undefined) filter.isActive = isActive === 'true' || isActive === true;
+    const technologies = await technologyRepository.findAll(filter);
+    return sendSuccess(res, technologies, 'Technologies retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createTechnology = async (req, res, next) => {
+  try {
+    const { name, category, assetTypes, description, isActive } = req.body;
+    const existing = await technologyRepository.findByName(name, category);
+    if (existing) {
+      return sendError(res, `Technology '${name}' already exists${category ? ` in category '${category}'` : ''}`, 409);
+    }
+    const technology = await technologyRepository.create({
+      name,
+      category,
+      assetTypes,
+      description,
+      isActive
+    });
+    return sendSuccess(res, technology, 'Technology created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTechnology = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await technologyRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Technology not found', 404);
+    }
+    const checkName = req.body.name || existing.name;
+    const checkCat = req.body.category !== undefined ? req.body.category : existing.category;
+    if (
+      (req.body.name && req.body.name.trim().toLowerCase() !== existing.name.toLowerCase()) ||
+      (req.body.category !== undefined && req.body.category !== existing.category)
+    ) {
+      const duplicate = await technologyRepository.findByName(checkName, checkCat);
+      if (duplicate && duplicate._id.toString() !== id.toString()) {
+        return sendError(res, `Technology '${checkName}' already exists`, 409);
+      }
+    }
+    const updated = await technologyRepository.update(id, req.body);
+    return sendSuccess(res, updated, 'Technology updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteTechnology = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await technologyRepository.findById(id);
+    if (!existing) {
+      return sendError(res, 'Technology not found', 404);
+    }
+    await technologyRepository.delete(id);
+    return sendSuccess(res, null, 'Technology deactivated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+

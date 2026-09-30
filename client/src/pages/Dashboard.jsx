@@ -150,7 +150,7 @@ export default function Dashboard() {
               ))}
             </div>
             <Link
-              to="/assets"
+              to="/inventory"
               style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 600, marginLeft: '3px' }}
             >
               <span>All</span>
@@ -212,7 +212,7 @@ export default function Dashboard() {
         </h2>
       </div>
       <div className="quick-actions-grid">
-        <Link to="/assets" className="quick-action-btn" id="action-create-asset">
+        <Link to="/inventory" className="quick-action-btn" id="action-create-asset">
           <PlusCircle size={15} />
           <span>Create Asset</span>
         </Link>
@@ -334,7 +334,7 @@ export default function Dashboard() {
             {showSpecs ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             <span>{showSpecs ? 'Hide Schema' : 'View 13 Fields'}</span>
           </button>
-          <Link to="/assets" onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+          <Link to="/inventory" onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
             <span>View Assets</span>
             <ArrowUpRight size={13} />
           </Link>
@@ -471,7 +471,7 @@ export default function Dashboard() {
           <AlertCircle size={15} color="var(--status-danger-text)" />
           <span>Warranty Action Center</span>
         </h2>
-        <Link to="/assets?warrantyStatus=EXPIRING_SOON" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+        <Link to="/inventory?warrantyStatus=EXPIRING_SOON" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
           <span>Filter</span>
           <ArrowUpRight size={13} />
         </Link>
@@ -596,7 +596,7 @@ export default function Dashboard() {
           <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
           <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
         </button>
-        <Link to="/assets" className="btn btn-secondary btn-sm" id="quick-view-assets">
+        <Link to="/inventory" className="btn btn-secondary btn-sm" id="quick-view-assets">
           <Boxes size={14} />
           <span>View Assets</span>
         </Link>

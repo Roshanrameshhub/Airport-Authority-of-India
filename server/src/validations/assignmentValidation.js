@@ -15,12 +15,14 @@ export const transferAssetSchema = z.object({
   transferReason: z.string({ required_error: 'Transfer reason is required' }).min(3, 'Transfer reason is required (min 3 characters)'),
   conditionAtReturn: z.enum(['NEW', 'EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'DAMAGED', 'UNSERVICEABLE', 'UNUSABLE', 'OBSOLETE']).default('GOOD'),
   conditionAtNewAssignment: z.enum(['NEW', 'EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'DAMAGED', 'UNSERVICEABLE', 'UNUSABLE', 'OBSOLETE']).default('GOOD'),
-  remarks: z.string().optional().default('')
+  remarks: z.string().optional().default(''),
+  cascadeComponents: z.boolean().optional().default(true)
 });
 
 export const returnAssetSchema = z.object({
   assetId: z.string({ required_error: 'Asset ID is required' }).min(1, 'Asset ID is required'),
   returnReason: z.string({ required_error: 'Return reason is required' }).min(3, 'Return reason is required (min 3 characters)'),
   conditionAtReturn: z.enum(['NEW', 'EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'DAMAGED', 'UNSERVICEABLE', 'UNUSABLE', 'OBSOLETE']).default('GOOD'),
-  remarks: z.string().optional().default('')
+  remarks: z.string().optional().default(''),
+  cascadeComponents: z.boolean().optional().default(true)
 });

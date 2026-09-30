@@ -4,6 +4,7 @@ import {
   getAssetHistory,
   getEmployeeAssignments,
   getAssignmentById,
+  getAssignmentStats,
   assignAsset,
   transferAsset,
   returnAsset
@@ -23,6 +24,7 @@ router.use(protect);
 
 // Read endpoints
 router.get('/', authorize('ADMIN', 'EMPLOYEE'), getAssignments);
+router.get('/stats', authorize('ADMIN', 'EMPLOYEE'), getAssignmentStats);
 router.get('/asset/:assetId', authorize('ADMIN', 'EMPLOYEE'), getAssetHistory);
 router.get('/employee/:employeeId', authorize('ADMIN', 'EMPLOYEE'), getEmployeeAssignments);
 router.get('/:id', authorize('ADMIN', 'EMPLOYEE'), getAssignmentById);

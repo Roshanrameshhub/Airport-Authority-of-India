@@ -26,18 +26,51 @@ export const exportAssetsExcel = async (req, res, next) => {
     const {
       search,
       category,
+      assetType,
       department,
       status,
-      warrantyStatus
+      condition,
+      make,
+      model,
+      technology,
+      location,
+      supplier,
+      vendor,
+      amcApplicable,
+      warrantyStatus,
+      floor,
+      room,
+      operatingSystem,
+      ipAddress,
+      amcContractId,
+      employeeId,
+      employeeType
     } = req.query;
 
-    const buffer = await exportService.generateAssetExcel({
+    const filters = {
       search,
       category,
+      assetType,
       department,
       status,
-      warrantyStatus
-    });
+      condition,
+      make,
+      model,
+      technology,
+      location,
+      supplier: supplier || vendor,
+      amcApplicable,
+      warrantyStatus,
+      floor,
+      room,
+      operatingSystem,
+      ipAddress,
+      amcContractId,
+      employeeId,
+      employeeType
+    };
+
+    const buffer = await exportService.generateAssetExcel(filters);
 
     await auditRepository.logEvent({
       action: 'EXCEL_EXPORT',
@@ -46,7 +79,7 @@ export const exportAssetsExcel = async (req, res, next) => {
       actor: getAuditActor(req),
       details: {
         documentType: 'ASSET_REGISTER_XLSX',
-        filters: { search, category, department, status, warrantyStatus }
+        filters
       },
       status: 'SUCCESS'
     });

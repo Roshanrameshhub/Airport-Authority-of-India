@@ -1,4 +1,5 @@
 import { relationshipRepository } from '../repositories/relationshipRepository.js';
+import { auditRepository } from '../repositories/auditRepository.js';
 import { sendSuccess, sendError } from '../utils/apiResponse.js';
 
 export const linkAssets = async (req, res, next) => {
@@ -17,10 +18,40 @@ export const linkAssets = async (req, res, next) => {
       notes
     });
 
+    // Audit Logging
+    await auditRepository.logEvent({
+      action: 'RELATIONSHIP_LINKED',
+      entityType: 'ASSET',
+      entityId: childAssetId,
+      actor: {
+        userId: req.user?._id || req.user?.id,
+        username: req.user?.username || 'admin',
+        name: req.user?.name || 'Administrator',
+        role: req.user?.role || 'ADMIN',
+        ipAddress: req.ip || '127.0.0.1'
+      },
+      details: {
+        parentAssetId,
+        childAssetId,
+        relationshipType: linked.relationshipType,
+        componentRole: linked.componentRole,
+        notes: linked.notes || ''
+      },
+      status: 'SUCCESS'
+    });
+
     return sendSuccess(res, linked, `Successfully linked component ${childAssetId} to parent ${parentAssetId}`, 201);
   } catch (error) {
-    if (error.message.includes('already linked') || error.message.includes('cannot be linked to itself')) {
+    if (
+      error.message.includes('already linked') ||
+      error.message.includes('cannot be linked to itself') ||
+      error.message.includes('Circular relationship') ||
+      error.message.includes('relationship cycle')
+    ) {
       return sendError(res, error.message, 409);
+    }
+    if (error.message.includes('archived') || error.message.includes('retired') || error.message.includes('decommissioned')) {
+      return sendError(res, error.message, 400);
     }
     if (error.message.includes('not found')) {
       return sendError(res, error.message, 404);
@@ -41,6 +72,26 @@ export const unlinkAssets = async (req, res, next) => {
       parentAssetId,
       childAssetId,
       reason
+    });
+
+    // Audit Logging
+    await auditRepository.logEvent({
+      action: 'RELATIONSHIP_UNLINKED',
+      entityType: 'ASSET',
+      entityId: childAssetId,
+      actor: {
+        userId: req.user?._id || req.user?.id,
+        username: req.user?.username || 'admin',
+        name: req.user?.name || 'Administrator',
+        role: req.user?.role || 'ADMIN',
+        ipAddress: req.ip || '127.0.0.1'
+      },
+      details: {
+        parentAssetId,
+        childAssetId,
+        reason: reason || ''
+      },
+      status: 'SUCCESS'
     });
 
     return sendSuccess(res, unlinked, `Successfully unlinked component ${childAssetId} from parent ${parentAssetId}`);

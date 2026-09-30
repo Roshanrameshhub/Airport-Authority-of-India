@@ -5,7 +5,7 @@
 // Base API URL configuration
 // When deployed on Vercel, VITE_API_URL points to Render backend:
 // e.g. https://airport-authority-of-india.onrender.com
-const RAW_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const RAW_BASE_URL = (import.meta.env?.VITE_API_URL || '').replace(/\/+$/, '');
 export const API_HOST = RAW_BASE_URL;
 export const API_BASE_URL = `${RAW_BASE_URL}/api/v1`;
 
@@ -190,4 +190,97 @@ export const verificationApi = {
     return api.post(`/verification/campaigns/${id}/finalize`);
   }
 };
+
+/**
+ * Strips undefined, null, and empty string values from query parameter objects
+ */
+export const cleanQueryParams = (params = {}) => {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      cleaned[key] = typeof value === 'string' ? value.trim() : value;
+    }
+  }
+  return cleaned;
+};
+
+export const catalogApi = {
+  getMakes: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/master/makes${query ? `?${query}` : ''}`);
+  },
+  getModels: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/master/models${query ? `?${query}` : ''}`);
+  },
+  getTechnologies: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/master/technologies${query ? `?${query}` : ''}`);
+  },
+  getConditions: async () => api.get('/master/conditions'),
+  createMake: async (data) => api.post('/master/makes', data),
+  updateMake: async (id, data) => api.put(`/master/makes/${id}`, data),
+  deleteMake: async (id) => api.delete(`/master/makes/${id}`),
+  createModel: async (data) => api.post('/master/models', data),
+  updateModel: async (id, data) => api.put(`/master/models/${id}`, data),
+  deleteModel: async (id) => api.delete(`/master/models/${id}`),
+  createTechnology: async (data) => api.post('/master/technologies', data),
+  updateTechnology: async (id, data) => api.put(`/master/technologies/${id}`, data),
+  deleteTechnology: async (id) => api.delete(`/master/technologies/${id}`)
+};
+
+export const assetApi = {
+  getAll: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/assets${query ? `?${query}` : ''}`);
+  },
+  getById: async (id) => api.get(`/assets/${id}`)
+};
+
+export const employeeApi = {
+  getAll: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/employees${query ? `?${query}` : ''}`);
+  },
+  getById: async (id) => api.get(`/employees/${id}`)
+};
+
+export const assignmentApi = {
+  getAll: async (params = {}) => {
+    const clean = cleanQueryParams(params);
+    if (clean.limit !== undefined) {
+      const parsedLimit = parseInt(clean.limit, 10);
+      clean.limit = (!isNaN(parsedLimit) && parsedLimit > 0) ? Math.min(parsedLimit, 100) : 25;
+    }
+    const query = new URLSearchParams(clean).toString();
+    return api.get(`/assignments${query ? `?${query}` : ''}`);
+  },
+  getStats: async () => {
+    return api.get('/assignments/stats');
+  },
+  getById: async (id) => {
+    return api.get(`/assignments/${id}`);
+  },
+  getAssetHistory: async (assetId) => {
+    return api.get(`/assignments/asset/${assetId}`);
+  },
+  getEmployeeAssignments: async (employeeId) => {
+    return api.get(`/assignments/employee/${employeeId}`);
+  },
+  assign: async (payload) => {
+    return api.post('/assignments/assign', payload);
+  },
+  transfer: async (payload) => {
+    return api.post('/assignments/transfer', payload);
+  },
+  return: async (payload) => {
+    return api.post('/assignments/return', payload);
+  }
+};
+
 

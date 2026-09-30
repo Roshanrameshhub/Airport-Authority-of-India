@@ -129,7 +129,7 @@ export const exportService = {
 
     const headers = [
       // === Asset Identity ===
-      'Asset ID', 'Old Asset ID', 'Asset Name', 'Category', 'Asset Type', 'Make / Company', 'Model', 'Serial Number',
+      'Asset ID', 'Old Asset ID', 'Asset Name', 'Category', 'Asset Type', 'Make / Company', 'Model', 'Technology', 'Serial Number',
       // === Custodian / Employee ===
       'Employee ID', 'User Name (Custodian)', 'Employee Type', 'Employment Category', 'Designation', 'Department', 'Floor / Location', 'Contractor / Vendor',
       // === Technical Specifications ===
@@ -170,6 +170,7 @@ export const exportService = {
         asset.assetType,
         asset.make,
         asset.model,
+        asset.technology || '',
         asset.serialNumber,
         // Custodian
         asset.currentEmployeeId || '—',
@@ -221,8 +222,8 @@ export const exportService = {
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     const baseCols = [
-      // Asset Identity (8)
-      { wch: 22 }, { wch: 16 }, { wch: 32 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 22 }, { wch: 22 },
+      // Asset Identity (9)
+      { wch: 22 }, { wch: 16 }, { wch: 32 }, { wch: 18 }, { wch: 20 }, { wch: 16 }, { wch: 22 }, { wch: 18 }, { wch: 22 },
       // Custodian (8)
       { wch: 14 }, { wch: 24 }, { wch: 14 }, { wch: 20 }, { wch: 26 }, { wch: 34 }, { wch: 26 }, { wch: 24 },
       // Technical (9)

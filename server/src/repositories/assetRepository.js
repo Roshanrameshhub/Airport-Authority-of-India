@@ -17,6 +17,7 @@ const seedAssets = () => {
         category: 'Desktop PC',
         make: 'Dell',
         model: 'OptiPlex 7090 MT',
+        technology: 'NVMe SSD',
         serialNumber: 'DL-7090-99481',
         oldAssetId: 'AAI-SR-IT-CPU-651',
         qrCode: 'AAI-REG-PC-2024-0001',
@@ -74,6 +75,7 @@ const seedAssets = () => {
         category: 'Laptop',
         make: 'Dell',
         model: 'Latitude 5420',
+        technology: 'NVMe SSD',
         serialNumber: 'DL-5420-99482',
         oldAssetId: 'AAI-SR-IT-LAP-089',
         qrCode: 'AAI-REG-LPT-2024-0002',
@@ -492,6 +494,25 @@ export const mapCategoryToAssetType = (category = '') => {
   return 'OTHER';
 };
 
+export const ALLOWED_SORT_FIELDS = new Set([
+  'createdAt',
+  'updatedAt',
+  'assetId',
+  'assetName',
+  'category',
+  'assetType',
+  'make',
+  'model',
+  'department',
+  'location',
+  'status',
+  'condition',
+  'purchaseCost',
+  'purchaseDate',
+  'warrantyEndDate',
+  'currentEmployeeName'
+]);
+
 export const assetRepository = {
   findPaginated: async (options = {}) => assetRepository.find(options),
 
@@ -505,12 +526,18 @@ export const assetRepository = {
     floor = '',
     room = '',
     supplier = '',
+    vendor = '',
+    make = '',
+    model = '',
+    technology = '',
+    location = '',
     operatingSystem = '',
     ipAddress = '',
     amcApplicable = '',
     amcContractId = '',
     warrantyStatus = '',
     employeeId = '',
+    employeeType = '',
     page = 1,
     limit = 10,
     sortBy = 'createdAt',
@@ -518,6 +545,14 @@ export const assetRepository = {
     isArchived = false
   }) => {
     const skip = (Number(page) - 1) * Number(limit);
+
+    // Sort resolution: strictly allowlisted, defaulting to 'createdAt', with deterministic secondary key
+    const resolvedSortField = ALLOWED_SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt';
+    const direction = sortOrder === 'asc' ? 1 : -1;
+    const sortOptions = { [resolvedSortField]: direction };
+    if (resolvedSortField !== '_id') {
+      sortOptions._id = -1;
+    }
 
     if (mongoose.connection.readyState === 1) {
       const query = { isArchived };
@@ -529,23 +564,21 @@ export const assetRepository = {
       if (department) query.department = department;
       if (floor) query.floor = floor;
       if (room) query.room = room;
-      if (supplier) query.supplier = supplier;
+      const effectiveSupplier = supplier || vendor;
+      if (effectiveSupplier) query.supplier = effectiveSupplier;
+      if (location) query.location = new RegExp(`^${escapeRegex(location.trim())}$`, 'i');
+      if (make) query.make = new RegExp(`^${escapeRegex(make.trim())}$`, 'i');
+      if (model) query.model = new RegExp(`^${escapeRegex(model.trim())}$`, 'i');
+      if (technology) query.technology = new RegExp(`^${escapeRegex(technology.trim())}$`, 'i');
       if (operatingSystem) {
         query['computerConfig.operatingSystem'] = new RegExp(escapeRegex(operatingSystem), 'i');
-      }
-      if (ipAddress) {
-        query.$or = query.$or || [];
-        const ipRegex = new RegExp(escapeRegex(ipAddress), 'i');
-        query.$or.push(
-          { 'computerConfig.ipAddress': ipRegex },
-          { 'networkConfig.ipAddress': ipRegex }
-        );
       }
       if (typeof amcApplicable === 'boolean' || amcApplicable === 'true' || amcApplicable === 'false') {
         query.amcApplicable = amcApplicable === true || amcApplicable === 'true';
       }
       if (amcContractId) query.amcContractId = amcContractId.trim();
       if (employeeId) query.currentEmployeeId = employeeId.trim().toUpperCase();
+      if (employeeType) query.currentEmployeeType = employeeType.trim();
 
       if (warrantyStatus) {
         const now = new Date();
@@ -561,25 +594,43 @@ export const assetRepository = {
         }
       }
 
-      if (search) {
-        const regex = new RegExp(escapeRegex(search), 'i');
-        query.$or = [
-          { assetId: regex },
-          { assetName: regex },
-          { serialNumber: regex },
-          { make: regex },
-          { model: regex },
-          { oldAssetId: regex },
-          { supplier: regex },
-          { supplyOrderNumber: regex },
-          { room: regex },
-          { currentEmployeeName: regex },
-          { currentEmployeeId: regex }
-        ];
+      // Logically independent conditions using $and to prevent IP filter and search collision
+      const andConditions = [];
+
+      if (ipAddress) {
+        const ipRegex = new RegExp(escapeRegex(ipAddress), 'i');
+        andConditions.push({
+          $or: [
+            { 'computerConfig.ipAddress': ipRegex },
+            { 'networkConfig.ipAddress': ipRegex }
+          ]
+        });
       }
 
-      const sortOptions = {};
-      sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
+      if (search) {
+        const regex = new RegExp(escapeRegex(search), 'i');
+        andConditions.push({
+          $or: [
+            { assetId: regex },
+            { assetName: regex },
+            { serialNumber: regex },
+            { make: regex },
+            { model: regex },
+            { technology: regex },
+            { oldAssetId: regex },
+            { supplier: regex },
+            { supplyOrderNumber: regex },
+            { room: regex },
+            { location: regex },
+            { currentEmployeeName: regex },
+            { currentEmployeeId: regex }
+          ]
+        });
+      }
+
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
+      }
 
       const items = await Asset.find(query).sort(sortOptions).skip(skip).limit(Number(limit));
       const total = await Asset.countDocuments(query);
@@ -600,7 +651,27 @@ export const assetRepository = {
     if (department) list = list.filter(a => a.department === department);
     if (floor) list = list.filter(a => a.floor === floor);
     if (room) list = list.filter(a => (a.room || '').toLowerCase().includes(room.toLowerCase()));
-    if (supplier) list = list.filter(a => (a.supplier || '').toLowerCase().includes(supplier.toLowerCase()));
+    const effectiveSupplier = supplier || vendor;
+    if (effectiveSupplier) {
+      const supLower = effectiveSupplier.toLowerCase();
+      list = list.filter(a => (a.supplier || '').toLowerCase().includes(supLower) || (a.vendor || '').toLowerCase().includes(supLower));
+    }
+    if (location) {
+      const locLower = location.trim().toLowerCase();
+      list = list.filter(a => (a.location || '').trim().toLowerCase() === locLower);
+    }
+    if (make) {
+      const makeLower = make.trim().toLowerCase();
+      list = list.filter(a => (a.make || '').trim().toLowerCase() === makeLower);
+    }
+    if (model) {
+      const modelLower = model.trim().toLowerCase();
+      list = list.filter(a => (a.model || '').trim().toLowerCase() === modelLower);
+    }
+    if (technology) {
+      const techLower = technology.trim().toLowerCase();
+      list = list.filter(a => (a.technology || '').trim().toLowerCase() === techLower);
+    }
     if (operatingSystem) {
       const os = operatingSystem.toLowerCase();
       list = list.filter(a => (a.computerConfig?.operatingSystem || '').toLowerCase().includes(os));
@@ -623,6 +694,9 @@ export const assetRepository = {
       const eid = employeeId.trim().toUpperCase();
       list = list.filter(a => (a.currentEmployeeId || '').toUpperCase() === eid);
     }
+    if (employeeType) {
+      list = list.filter(a => (a.currentEmployeeType || 'AAI') === employeeType);
+    }
 
     if (search) {
       const s = search.toLowerCase();
@@ -632,10 +706,12 @@ export const assetRepository = {
         (a.serialNumber && a.serialNumber.toLowerCase().includes(s)) ||
         (a.make && a.make.toLowerCase().includes(s)) ||
         (a.model && a.model.toLowerCase().includes(s)) ||
+        (a.technology && a.technology.toLowerCase().includes(s)) ||
         (a.oldAssetId && a.oldAssetId.toLowerCase().includes(s)) ||
         (a.supplier && a.supplier.toLowerCase().includes(s)) ||
         (a.supplyOrderNumber && a.supplyOrderNumber.toLowerCase().includes(s)) ||
         (a.room && a.room.toLowerCase().includes(s)) ||
+        (a.location && a.location.toLowerCase().includes(s)) ||
         (a.currentEmployeeName && a.currentEmployeeName.toLowerCase().includes(s)) ||
         (a.currentEmployeeId && a.currentEmployeeId.toLowerCase().includes(s))
       );
@@ -645,14 +721,19 @@ export const assetRepository = {
       list = list.filter(a => calculateWarrantyStatus(a.warrantyEndDate) === warrantyStatus);
     }
 
-    // Sorting
+    // Sorting: allowlisted field with deterministic tie-breaker
     list.sort((a, b) => {
-      const valA = a[sortBy] || '';
-      const valB = b[sortBy] || '';
-      if (sortOrder === 'asc') {
-        return valA > valB ? 1 : -1;
+      const valA = a[resolvedSortField] != null ? a[resolvedSortField] : '';
+      const valB = b[resolvedSortField] != null ? b[resolvedSortField] : '';
+      if (valA !== valB) {
+        if (direction === 1) {
+          return valA > valB ? 1 : -1;
+        }
+        return valA < valB ? 1 : -1;
       }
-      return valA < valB ? 1 : -1;
+      const idA = a._id || a.assetId || '';
+      const idB = b._id || b.assetId || '';
+      return idA < idB ? 1 : -1;
     });
 
     const total = list.length;
@@ -685,6 +766,10 @@ export const assetRepository = {
           ...a,
           assetType: a.assetType || mapCategoryToAssetType(a.category),
           warrantyStatus: calculateWarrantyStatus(a.warrantyEndDate),
+          operatingSystem: a.operatingSystem || a.computerConfig?.operatingSystem || '',
+          osVersion: a.osVersion || a.computerConfig?.osVersion || '',
+          ipAddress: a.ipAddress || a.computerConfig?.ipAddress || a.networkConfig?.ipAddress || '',
+          macAddress: a.macAddress || a.computerConfig?.macAddress || a.networkConfig?.macAddress || '',
           assignedTo: a.currentEmployeeId ? {
             employeeId: a.currentEmployeeId,
             name: a.currentEmployeeName,
@@ -698,12 +783,13 @@ export const assetRepository = {
   },
 
   findBySerialNumber: async (serialNumber) => {
-    const sn = serialNumber.trim().toUpperCase();
+    if (!serialNumber || !String(serialNumber).trim()) return null;
+    const sn = String(serialNumber).trim().toUpperCase();
     if (mongoose.connection.readyState === 1) {
       return Asset.findOne({ serialNumber: sn });
     }
     for (const a of memoryAssets.values()) {
-      if (a.serialNumber.toUpperCase() === sn) {
+      if (a.serialNumber && a.serialNumber.toUpperCase() === sn) {
         return {
           ...a,
           assetType: a.assetType || mapCategoryToAssetType(a.category),
@@ -716,32 +802,70 @@ export const assetRepository = {
 
   create: async (data) => {
     const assetId = data.assetId ? data.assetId.trim().toUpperCase() : await generateAssetIdAsync(data.category);
-    const sn = data.serialNumber.trim().toUpperCase();
+    const sn = data.serialNumber && String(data.serialNumber).trim()
+      ? String(data.serialNumber).trim().toUpperCase()
+      : undefined;
     const assetType = data.assetType ? data.assetType.toUpperCase() : mapCategoryToAssetType(data.category);
+
+    const computerConfig = {
+      ...(data.computerConfig || {})
+    };
+    if (data.operatingSystem && !computerConfig.operatingSystem) {
+      computerConfig.operatingSystem = data.operatingSystem;
+    }
+    if (data.osVersion && !computerConfig.osVersion) {
+      computerConfig.osVersion = data.osVersion;
+    }
+    if (data.ipAddress && !computerConfig.ipAddress) {
+      computerConfig.ipAddress = data.ipAddress;
+    }
+    if (data.macAddress && !computerConfig.macAddress) {
+      computerConfig.macAddress = data.macAddress;
+    }
 
     const preparedData = {
       ...data,
       assetId,
       assetType,
       serialNumber: sn,
-      installDate: new Date(data.installDate),
-      warrantyStartDate: data.warrantyStartDate ? new Date(data.warrantyStartDate) : new Date(data.installDate),
-      warrantyEndDate: new Date(data.warrantyEndDate),
+      currentEmployeeId: data.currentEmployeeId != null ? data.currentEmployeeId : null,
+      currentEmployeeName: data.currentEmployeeName != null ? data.currentEmployeeName : '',
+      currentDesignation: data.currentDesignation != null ? data.currentDesignation : '',
+      currentAssignmentDate: data.currentAssignmentDate ? new Date(data.currentAssignmentDate) : null,
+      currentEmployeeType: data.currentEmployeeType || 'AAI',
+      currentEmploymentCategory: data.currentEmploymentCategory || 'Regular',
+      currentContractorName: data.currentContractorName || '',
+      computerConfig,
+      installDate: data.installDate ? new Date(data.installDate) : null,
+      warrantyStartDate: data.warrantyStartDate ? new Date(data.warrantyStartDate) : (data.installDate ? new Date(data.installDate) : null),
+      warrantyEndDate: data.warrantyEndDate ? new Date(data.warrantyEndDate) : null,
       purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
       amcEndDate: data.amcEndDate ? new Date(data.amcEndDate) : null,
       isArchived: false,
       status: data.currentEmployeeId ? 'ASSIGNED' : (data.status || 'AVAILABLE')
     };
 
+    const asset = new Asset(preparedData);
     if (mongoose.connection.readyState === 1) {
-      const asset = new Asset(preparedData);
       return asset.save();
     }
+    await asset.validate();
 
     const id = new mongoose.Types.ObjectId().toString();
     const newAsset = {
       _id: id,
       ...preparedData,
+      currentEmployeeId: preparedData.currentEmployeeId,
+      currentEmployeeName: preparedData.currentEmployeeName,
+      currentDesignation: preparedData.currentDesignation,
+      currentAssignmentDate: preparedData.currentAssignmentDate,
+      currentEmployeeType: preparedData.currentEmployeeType,
+      currentEmploymentCategory: preparedData.currentEmploymentCategory,
+      currentContractorName: preparedData.currentContractorName,
+      operatingSystem: computerConfig.operatingSystem || '',
+      osVersion: computerConfig.osVersion || '',
+      ipAddress: computerConfig.ipAddress || (preparedData.networkConfig?.ipAddress || ''),
+      macAddress: computerConfig.macAddress || (preparedData.networkConfig?.macAddress || ''),
       createdAt: new Date(),
       updatedAt: new Date(),
       warrantyStatus: calculateWarrantyStatus(preparedData.warrantyEndDate),
@@ -776,7 +900,44 @@ export const assetRepository = {
     }
     if (!targetAsset) return null;
 
-    Object.assign(targetAsset, data, { updatedAt: new Date() });
+    // Check duplicate serial number on update
+    if (data.serialNumber) {
+      const normSerial = String(data.serialNumber).toUpperCase().trim();
+      for (const a of memoryAssets.values()) {
+        if (a._id !== targetAsset._id && a.assetId !== targetAsset.assetId && a.serialNumber && a.serialNumber.toUpperCase().trim() === normSerial) {
+          const err = new Error(`Asset with serial number '${data.serialNumber}' already exists.`);
+          err.code = 11000;
+          err.name = 'MongoServerError';
+          throw err;
+        }
+      }
+    }
+
+    const safeData = { ...data };
+    delete safeData.assetId;
+    delete safeData._id;
+
+    // Merge subdocuments cleanly
+    if (safeData.computerConfig && typeof safeData.computerConfig === 'object') {
+      safeData.computerConfig = { ...(targetAsset.computerConfig || {}), ...safeData.computerConfig };
+    }
+    if (safeData.displayConfig && typeof safeData.displayConfig === 'object') {
+      safeData.displayConfig = { ...(targetAsset.displayConfig || {}), ...safeData.displayConfig };
+    }
+    if (safeData.powerConfig && typeof safeData.powerConfig === 'object') {
+      safeData.powerConfig = { ...(targetAsset.powerConfig || {}), ...safeData.powerConfig };
+    }
+    if (safeData.networkConfig && typeof safeData.networkConfig === 'object') {
+      safeData.networkConfig = { ...(targetAsset.networkConfig || {}), ...safeData.networkConfig };
+    }
+    if (safeData.softwareConfig && typeof safeData.softwareConfig === 'object') {
+      safeData.softwareConfig = { ...(targetAsset.softwareConfig || {}), ...safeData.softwareConfig };
+    }
+    if (safeData.specifications && typeof safeData.specifications === 'object') {
+      safeData.specifications = { ...(targetAsset.specifications || {}), ...safeData.specifications };
+    }
+
+    Object.assign(targetAsset, safeData, { updatedAt: new Date() });
     targetAsset.warrantyStatus = calculateWarrantyStatus(targetAsset.warrantyEndDate);
     return targetAsset;
   },
@@ -790,11 +951,50 @@ export const assetRepository = {
       currentDesignation: '',
       currentAssignmentDate: null
     };
-    return assetRepository.update(id, updateData);
+    const updated = await assetRepository.update(id, updateData);
+    if (updated) {
+      try {
+        const { relationshipRepository } = await import('./relationshipRepository.js');
+        await relationshipRepository.invalidateRelationshipsForAsset({
+          assetId: updated.assetId || id,
+          reason: `Asset retired: ${reason}`,
+          actor: { username: 'SYSTEM', role: 'SYSTEM' }
+        });
+      } catch (e) {}
+    }
+    return updated;
   },
 
   delete: async (id) => {
     // Soft archive rather than hard delete to safeguard history
-    return assetRepository.update(id, { isArchived: true });
+    const updated = await assetRepository.update(id, { isArchived: true });
+    if (updated) {
+      try {
+        const { relationshipRepository } = await import('./relationshipRepository.js');
+        await relationshipRepository.invalidateRelationshipsForAsset({
+          assetId: updated.assetId || id,
+          reason: 'Asset archived from active inventory',
+          actor: { username: 'SYSTEM', role: 'SYSTEM' }
+        });
+      } catch (e) {}
+    }
+    return updated;
+  },
+
+  hardDelete: async (id) => {
+    if (mongoose.connection.readyState === 1) {
+      if (mongoose.isValidObjectId(id)) {
+        return Asset.findByIdAndDelete(id);
+      }
+      return Asset.findOneAndDelete({ assetId: id.toUpperCase() });
+    }
+    for (const [key, a] of memoryAssets.entries()) {
+      if (a._id === id || a.assetId.toUpperCase() === id.toUpperCase()) {
+        memoryAssets.delete(key);
+        return a;
+      }
+    }
+    return null;
   }
 };
+

@@ -523,7 +523,7 @@ export const ENTERPRISE_EXTENDED_FIELDS = [
     exportEnabled: true,
     sortOrder: 34,
     description: 'Purchase order, contract number or reference',
-    aliases: ['supply order number', 'supply order no', 'so no', 'po number', 'po no', 'purchase order', 'order no', 'purchase order no', 'gem order no', 'gem contract no', 'so number']
+    aliases: ['supply order number', 'supply order no', 'so no', 'po number', 'order no', 'purchase order no', 'gem order no', 'gem contract no', 'so number']
   },
   {
     fieldId: 'purchaseCost',
@@ -629,6 +629,21 @@ export const ENTERPRISE_EXTENDED_FIELDS = [
     sortOrder: 41,
     description: 'Maintenance agreement contract termination date',
     aliases: ['amc end', 'amc end date', 'amc expiry', 'amc valid till', 'amc expiration', 'amc termination date']
+  },
+  {
+    fieldId: 'technology',
+    fieldName: 'technology',
+    displayName: 'Technology',
+    dataType: 'TEXT',
+    options: [],
+    isLocked: false,
+    required: false,
+    enabled: true,
+    importEnabled: true,
+    exportEnabled: true,
+    sortOrder: 42,
+    description: 'Hardware, display, storage, printing, or connectivity technology',
+    aliases: ['technology', 'tech', 'technology type', 'display technology', 'storage technology', 'printing technology']
   }
 ];
 

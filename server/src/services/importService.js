@@ -638,10 +638,32 @@ export const importService = {
         const existing = await assetRepository.findBySerialNumber(cleanSerial);
 
         if (existing) {
-          if (conflictStrategy === 'SKIP_EXISTING') {
+          if (conflictStrategy === 'SKIP_EXISTING' || conflictStrategy === 'SKIP') {
             skippedAssets.push({ serialNumber: cleanSerial, reason: 'Already exists in database' });
             continue;
           } else {
+            // Update existing asset safely without destroying existing valid values with blanks
+            if (row.make && String(row.make).trim() !== '') {
+              existing.make = String(row.make).trim();
+            }
+            if (row.model && String(row.model).trim() !== '') {
+              existing.model = String(row.model).trim();
+            }
+            if (row.technology && String(row.technology).trim() !== '') {
+              existing.technology = String(row.technology).trim();
+            }
+            if (row.assetName && String(row.assetName).trim() !== '') {
+              existing.assetName = String(row.assetName).trim();
+            }
+            if (row.department && String(row.department).trim() !== '') {
+              existing.department = String(row.department).trim();
+            }
+            if (row.floor && String(row.floor).trim() !== '') {
+              existing.floor = String(row.floor).trim();
+            }
+            if (row.location && String(row.location).trim() !== '') {
+              existing.location = String(row.location).trim();
+            }
             existing.customFields = { ...(existing.customFields || {}), ...(row.customFields || {}) };
             if (row.custodian && !existing.currentEmployeeId) {
               existing.currentEmployeeId = row.custodian.employeeId;
@@ -651,6 +673,8 @@ export const importService = {
             }
             if (typeof existing.save === 'function') {
               await existing.save();
+            } else if (existing.assetId) {
+              await assetRepository.update(existing.assetId, existing);
             }
             importedAssets.push(existing);
             continue;
@@ -686,6 +710,7 @@ export const importService = {
           oldAssetId: row.oldAssetId || '',
           make: row.make,
           model: row.model,
+          technology: row.technology || '',
           serialNumber: cleanSerial,
           supplier: row.supplier || row.vendor || '',
           supplyOrderNumber: row.supplyOrderNumber || '',
