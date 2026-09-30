@@ -83,8 +83,9 @@ const assetSchema = new mongoose.Schema({
   },
   assetName: {
     type: String,
-    required: [true, 'Asset Name is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   assetType: {
     type: String,
@@ -117,25 +118,42 @@ const assetSchema = new mongoose.Schema({
   },
   make: {
     type: String,
-    required: [true, 'Make / Manufacturer is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   model: {
     type: String,
-    required: [true, 'Model is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
+  },
+  technology: {
+    type: String,
+    trim: true,
+    default: ''
   },
   serialNumber: {
     type: String,
     required: function() {
-      // Require serial number for major IT assets, optional for peripherals/accessories
-      const exemptTypes = ['PERIPHERAL', 'OTHER'];
-      return !exemptTypes.includes(this.assetType);
+      // Require serial number for major physical IT assets, optional for peripherals, accessories, and network profiles
+      const exemptTypes = ['PERIPHERAL', 'OTHER', 'NETWORK'];
+      if (exemptTypes.includes(this.assetType)) return false;
+
+      // Narrow exemption for network profile records such as New PTR IP:
+      // Printer network profile with networkConfig.ipAddress and no physical make/model or explicitly marked
+      if (this.category === 'New PTR IP' || this.specifications?.isNetworkProfile) return false;
+      if (this.assetType === 'PRINTER' && !this.make && !this.model && this.networkConfig?.ipAddress) {
+        return false;
+      }
+
+      return true;
     },
     unique: true,
     sparse: true,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    default: undefined
   },
   oldAssetId: {
     type: String,
@@ -156,8 +174,9 @@ const assetSchema = new mongoose.Schema({
   // 2. Location & Facility Information
   department: {
     type: String,
-    required: [true, 'Department is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   departmentId: {
     type: String,
@@ -176,8 +195,9 @@ const assetSchema = new mongoose.Schema({
   },
   floor: {
     type: String,
-    required: [true, 'Floor / Location is required'],
-    trim: true
+    required: false,
+    trim: true,
+    default: ''
   },
   room: {
     type: String,
@@ -256,7 +276,8 @@ const assetSchema = new mongoose.Schema({
   },
   installDate: {
     type: Date,
-    required: [true, 'Install Date is required']
+    required: false,
+    default: null
   },
 
   // 5. Warranty & AMC Details
@@ -266,7 +287,8 @@ const assetSchema = new mongoose.Schema({
   },
   warrantyEndDate: {
     type: Date,
-    required: [true, 'Warranty End Date is required']
+    required: false,
+    default: null
   },
   amcApplicable: {
     type: Boolean,
@@ -300,7 +322,6 @@ const assetSchema = new mongoose.Schema({
       'RETIRED',
       'DISPOSED'
     ],
-    required: [true, 'Asset Status is required'],
     default: 'AVAILABLE'
   },
   condition: {
@@ -316,7 +337,6 @@ const assetSchema = new mongoose.Schema({
       'UNUSABLE',
       'OBSOLETE'
     ],
-    required: [true, 'Asset Condition is required'],
     default: 'GOOD'
   },
   isArchived: {
@@ -386,6 +406,23 @@ assetSchema.virtual('assignedTo').get(function () {
   };
 });
 
+// Root-level backward-compatibility virtual getters for migrated technical fields
+assetSchema.virtual('operatingSystem').get(function () {
+  return this.computerConfig?.operatingSystem || '';
+});
+
+assetSchema.virtual('osVersion').get(function () {
+  return this.computerConfig?.osVersion || '';
+});
+
+assetSchema.virtual('ipAddress').get(function () {
+  return this.computerConfig?.ipAddress || this.networkConfig?.ipAddress || '';
+});
+
+assetSchema.virtual('macAddress').get(function () {
+  return this.computerConfig?.macAddress || this.networkConfig?.macAddress || '';
+});
+
 // Compound search index
 assetSchema.index({
   assetId: 'text',
@@ -409,6 +446,9 @@ assetSchema.index({ assetType: 1 });
 assetSchema.index({ department: 1 });
 assetSchema.index({ currentEmployeeId: 1 });
 assetSchema.index({ isArchived: 1 });
+assetSchema.index({ make: 1 });
+assetSchema.index({ model: 1 });
+assetSchema.index({ technology: 1 });
 
 const Asset = mongoose.model('Asset', assetSchema);
 

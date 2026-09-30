@@ -83,7 +83,7 @@ export const CANONICAL_FIELDS = {
     required: true,
     aliases: [
       'make', 'company', 'make / company', 'manufacturer',
-      'brand', 'vendor', 'oem', 'mfr', 'mfg'
+      'brand', 'brand name', 'vendor', 'oem', 'mfr', 'mfg'
     ],
     ambiguousTerms: []
   },
@@ -93,8 +93,19 @@ export const CANONICAL_FIELDS = {
     description: 'Specific hardware model designation',
     required: true,
     aliases: [
-      'model', 'model no', 'model number', 'equipment model',
+      'model', 'model no', 'model number', 'model name', 'equipment model',
       'machine model', 'hardware model', 'type/model'
+    ],
+    ambiguousTerms: []
+  },
+  technology: {
+    key: 'technology',
+    label: 'Technology',
+    description: 'Hardware, display, storage, printing, or connectivity technology',
+    required: false,
+    aliases: [
+      'technology', 'tech', 'technology type', 'display technology',
+      'storage technology', 'printing technology', 'device technology'
     ],
     ambiguousTerms: []
   },
@@ -210,7 +221,7 @@ export const CANONICAL_FIELDS = {
     required: false,
     aliases: [
       'supply order number', 'supply order no', 'so no', 'po number',
-      'po no', 'purchase order', 'order no', 'purchase order no',
+      'order no', 'purchase order no',
       'gem order no', 'gem contract no', 'so number'
     ],
     ambiguousTerms: []
@@ -545,30 +556,7 @@ export const matchHeader = (rawHeader, customFields = []) => {
     }
   }
 
-  // 1. Exact Match against canonical key or aliases of core fields (HIGH CONFIDENCE)
-  for (const [canonicalKey, def] of Object.entries(CANONICAL_FIELDS)) {
-    if (clean === canonicalKey.toLowerCase() || clean === def.label.toLowerCase()) {
-      return {
-        canonicalKey,
-        confidence: 'HIGH_CONFIDENCE',
-        matchedAlias: def.label,
-        candidates: [canonicalKey]
-      };
-    }
-
-    for (const alias of def.aliases) {
-      if (clean === alias) {
-        return {
-          canonicalKey,
-          confidence: 'HIGH_CONFIDENCE',
-          matchedAlias: alias,
-          candidates: [canonicalKey]
-        };
-      }
-    }
-  }
-
-  // 1b. Exact Match against configurable custom fields (HIGH CONFIDENCE)
+  // 1. Exact Match against configurable custom fields (HIGH CONFIDENCE)
   for (const cf of customFields) {
     const cfKey = cf.fieldName || cf.fieldId;
     const cfDisplay = cf.displayName || cfKey;
@@ -592,6 +580,31 @@ export const matchHeader = (rawHeader, customFields = []) => {
           confidence: 'HIGH_CONFIDENCE',
           matchedAlias: alias,
           candidates: [cfKey]
+        };
+      }
+    }
+  }
+
+  // 1b. Exact Match against canonical key or aliases of canonical fields (HIGH CONFIDENCE)
+  for (const [canonicalKey, def] of Object.entries(CANONICAL_FIELDS)) {
+    const cleanCanonical = cleanHeaderText(canonicalKey);
+    const cleanLabel = cleanHeaderText(def.label);
+    if (clean === cleanCanonical || clean === cleanLabel) {
+      return {
+        canonicalKey,
+        confidence: 'HIGH_CONFIDENCE',
+        matchedAlias: def.label,
+        candidates: [canonicalKey]
+      };
+    }
+
+    for (const alias of def.aliases) {
+      if (clean === cleanHeaderText(alias)) {
+        return {
+          canonicalKey,
+          confidence: 'HIGH_CONFIDENCE',
+          matchedAlias: alias,
+          candidates: [canonicalKey]
         };
       }
     }

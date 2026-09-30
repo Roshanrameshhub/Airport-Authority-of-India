@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
-  Boxes,
   Layers,
   ArrowLeftRight,
   Users,
@@ -22,7 +21,6 @@ export default function Sidebar({ isCollapsed, onToggle }) {
   // Role-Aware Navigation Links
   const adminNavItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard, id: 'nav-dashboard' },
-    { path: '/assets', label: 'Assets', icon: Boxes, id: 'nav-assets' },
     { path: '/inventory', label: 'Inventory', icon: Layers, id: 'nav-inventory' },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight, id: 'nav-transfers' },
     { path: '/employees', label: 'Employees', icon: Users, id: 'nav-employees' },

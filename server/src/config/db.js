@@ -34,11 +34,11 @@ const connectDB = async () => {
     }
   }
 
-  // 2. Development and Production: MongoDB Atlas is the ONLY database
-  const uri = process.env.MONGODB_URI;
+  // 2. Database connection string (local or remote)
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
 
   if (!uri) {
-    const errorMsg = 'CRITICAL: MONGODB_URI is not defined in environment variables! A valid MongoDB Atlas connection string is required for development and production.';
+    const errorMsg = 'CRITICAL: MONGODB_URI or MONGO_URI is not defined in environment variables! A valid MongoDB connection string is required.';
     logger.error(errorMsg);
     throw new Error(errorMsg);
   }

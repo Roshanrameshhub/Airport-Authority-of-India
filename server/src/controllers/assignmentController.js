@@ -6,32 +6,50 @@ export const getAssignments = async (req, res, next) => {
   try {
     const {
       page = 1,
-      limit = 20,
+      limit = 25,
       status,
       search,
       assetId,
-      employeeId
+      employeeId,
+      department,
+      sortBy = 'assignedDate',
+      sortOrder = 'desc'
     } = req.query;
 
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(Math.max(1, Number(limit) || 25), 100);
+
     const { items, total } = await assignmentRepository.findPaginated({
-      page: Number(page),
-      limit: Number(limit),
+      page: pageNum,
+      limit: limitNum,
       status,
       search,
       assetId,
-      employeeId
+      employeeId,
+      department,
+      sortBy,
+      sortOrder
     });
 
     return sendPaginated(
       res,
       items,
       {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total
       },
       'Asset assignments retrieved successfully'
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAssignmentStats = async (req, res, next) => {
+  try {
+    const stats = await assignmentRepository.getAssignmentStats();
+    return sendSuccess(res, stats, 'Assignment statistics retrieved successfully', 200);
   } catch (error) {
     next(error);
   }
@@ -150,7 +168,8 @@ export const transferAsset = async (req, res, next) => {
       transferReason,
       conditionAtReturn,
       conditionAtNewAssignment,
-      remarks
+      remarks,
+      cascadeComponents = true
     } = req.body;
     const processedBy = req.user?.username || 'admin';
 
@@ -161,7 +180,8 @@ export const transferAsset = async (req, res, next) => {
       conditionAtReturn,
       conditionAtNewAssignment,
       remarks,
-      processedBy
+      processedBy,
+      cascadeComponents
     });
 
     // Audit Logging
@@ -199,7 +219,7 @@ export const transferAsset = async (req, res, next) => {
 
 export const returnAsset = async (req, res, next) => {
   try {
-    const { assetId, returnReason, conditionAtReturn, remarks } = req.body;
+    const { assetId, returnReason, conditionAtReturn, remarks, cascadeComponents = true } = req.body;
     const processedBy = req.user?.username || 'admin';
 
     const result = await assignmentRepository.returnAsset({
@@ -207,7 +227,8 @@ export const returnAsset = async (req, res, next) => {
       returnReason,
       conditionAtReturn,
       remarks,
-      processedBy
+      processedBy,
+      cascadeComponents
     });
 
     // Audit Logging

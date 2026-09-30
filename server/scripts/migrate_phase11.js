@@ -95,37 +95,43 @@ export async function migrateAssets(options = {}) {
     const targetType = changes.assetType ? changes.assetType.to : doc.assetType;
 
     if (['DESKTOP', 'LAPTOP', 'SERVER', 'WORKSTATION'].includes(targetType)) {
-      if (!doc.computerConfig) {
+      const currentConfig = doc.computerConfig || {};
+      const needsConfig = !doc.computerConfig || !currentConfig.ramSizeGb || !currentConfig.storageCapacityGb;
+      if (needsConfig) {
         changes.computerConfig = {
-          from: null,
+          from: doc.computerConfig || null,
           to: {
-            processor: '',
-            ramSizeGb: targetType === 'SERVER' ? 32 : 16,
-            storageCapacityGb: targetType === 'SERVER' ? 1024 : 512,
-            storageType: 'SSD',
-            hostname: ''
+            processor: currentConfig.processor || '',
+            ramSizeGb: currentConfig.ramSizeGb || (targetType === 'SERVER' ? 32 : 16),
+            storageCapacityGb: currentConfig.storageCapacityGb || (targetType === 'SERVER' ? 1024 : 512),
+            storageType: currentConfig.storageType || 'SSD',
+            hostname: currentConfig.hostname || '',
+            operatingSystem: currentConfig.operatingSystem || doc.operatingSystem || '',
+            osVersion: currentConfig.osVersion || doc.osVersion || ''
           }
         };
       }
     } else if (['MONITOR', 'DISPLAY'].includes(targetType)) {
-      if (!doc.displayConfig) {
+      const currentConfig = doc.displayConfig || {};
+      if (!doc.displayConfig || !currentConfig.screenSizeInches) {
         changes.displayConfig = {
-          from: null,
+          from: doc.displayConfig || null,
           to: {
-            screenSizeInches: 24,
-            resolution: '1920x1080',
-            displayType: 'IPS'
+            screenSizeInches: currentConfig.screenSizeInches || 24,
+            resolution: currentConfig.resolution || '1920x1080',
+            displayType: currentConfig.displayType || 'IPS'
           }
         };
       }
     } else if (['UPS', 'POWER'].includes(targetType)) {
-      if (!doc.powerConfig) {
+      const currentConfig = doc.powerConfig || {};
+      if (!doc.powerConfig || !currentConfig.capacityVa) {
         changes.powerConfig = {
-          from: null,
+          from: doc.powerConfig || null,
           to: {
-            capacityVa: 1000,
-            backupTimeMinutes: 15,
-            topology: 'Line-Interactive'
+            capacityVa: currentConfig.capacityVa || 1000,
+            backupTimeMinutes: currentConfig.backupTimeMinutes || 15,
+            topology: currentConfig.topology || 'Line-Interactive'
           }
         };
       }
