@@ -1,6 +1,9 @@
 import { employeeRepository } from '../repositories/employeeRepository.js';
 import { userRepository } from '../repositories/userRepository.js';
+import { assignmentRepository } from '../repositories/assignmentRepository.js';
 import { auditRepository } from '../repositories/auditRepository.js';
+import { generateEmployeeIdAsync } from '../utils/idGenerator.js';
+import { logger } from '../utils/logger.js';
 import { sendSuccess, sendError, sendPaginated } from '../utils/apiResponse.js';
 
 /**
@@ -53,7 +56,10 @@ export const getEmployeeById = async (req, res, next) => {
 export const createEmployee = async (req, res, next) => {
   try {
     const { employeeId, createLoginAccount = true } = req.body;
-    const cleanEmpId = employeeId.trim().toUpperCase();
+    let cleanEmpId = employeeId ? employeeId.trim().toUpperCase() : '';
+    if (!cleanEmpId) {
+      cleanEmpId = await generateEmployeeIdAsync();
+    }
 
     // Check collision in employee registry
     const existing = await employeeRepository.findByEmployeeId(cleanEmpId);
@@ -83,6 +89,32 @@ export const createEmployee = async (req, res, next) => {
       employeeId: cleanEmpId
     });
 
+    // Asset assignment on creation for fields 8-15
+    const assetKeys = ['assetId', 'monitorId', 'keyboardId', 'mouseId', 'upsId', 'ptrId', 'scannerId', 'laptopId'];
+    const assetIdsToAssign = new Set();
+    if (Array.isArray(req.body.assignedAssetIds)) {
+      req.body.assignedAssetIds.forEach(id => id && assetIdsToAssign.add(String(id).trim().toUpperCase()));
+    }
+    assetKeys.forEach(k => {
+      if (req.body[k] && typeof req.body[k] === 'string' && req.body[k].trim()) {
+        assetIdsToAssign.add(req.body[k].trim().toUpperCase());
+      }
+    });
+
+    for (const aid of assetIdsToAssign) {
+      try {
+        await assignmentRepository.assignAsset({
+          assetId: aid,
+          employeeId: newEmp.employeeId,
+          assignedBy: req.user?.username || 'admin',
+          transferReason: 'Staff Allocation on Profile Creation',
+          remarks: 'Allocated during employee registration'
+        });
+      } catch (assignErr) {
+        logger.warn(`Could not auto-assign asset ${aid} during employee creation: ${assignErr.message}`);
+      }
+    }
+
     // Audit Logging: Employee Created
     await auditRepository.logEvent({
       action: 'EMPLOYEE_CREATED',
@@ -111,9 +143,15 @@ export const createEmployee = async (req, res, next) => {
     if (createLoginAccount) {
       const tempPassword = generateTempPassword();
       const rawUsername = cleanEmpId;
-      const userEmail = newEmp.email && newEmp.email.trim()
+      let userEmail = newEmp.email && newEmp.email.trim()
         ? newEmp.email.trim().toLowerCase()
         : `${cleanEmpId.toLowerCase().replace(/[^a-z0-9]/g, '')}@aai.local`;
+
+      // Verify email uniqueness before inserting
+      const existingUserByEmail = await userRepository.findByCredential(userEmail);
+      if (existingUserByEmail) {
+        userEmail = `${cleanEmpId.toLowerCase().replace(/[^a-z0-9]/g, '')}.${Date.now().toString().slice(-4)}@aai.local`;
+      }
 
       const newUser = await userRepository.create({
         username: rawUsername.toLowerCase(),
@@ -415,17 +453,44 @@ export const createEmployeeLogin = async (req, res, next) => {
       return sendError(res, `A login account already exists for employee '${cleanEmpId}'.`, 409);
     }
 
-    const tempPassword = generateTempPassword();
-    const userEmail = employee.email && employee.email.trim()
-      ? employee.email.trim().toLowerCase()
-      : `${cleanEmpId.toLowerCase().replace(/[^a-z0-9]/g, '')}@aai.local`;
+    // Support admin-specified username or fallback to employeeId
+    const rawUsername = req.body?.username && req.body.username.trim()
+      ? req.body.username.trim()
+      : cleanEmpId;
+    const cleanUsername = rawUsername.toLowerCase();
+
+    // Check username collision
+    const existingByUsername = await userRepository.findByCredential(cleanUsername);
+    if (existingByUsername) {
+      return sendError(res, `Username '${rawUsername}' is already in use.`, 409);
+    }
+
+    const tempPassword = req.body?.password && req.body.password.trim()
+      ? req.body.password.trim()
+      : generateTempPassword();
+
+    let userEmail = req.body?.email && req.body.email.trim()
+      ? req.body.email.trim().toLowerCase()
+      : (employee.email && employee.email.trim()
+          ? employee.email.trim().toLowerCase()
+          : `${cleanEmpId.toLowerCase().replace(/[^a-z0-9]/g, '')}@aai.local`);
+
+    // Verify email uniqueness before inserting
+    const existingByEmail = await userRepository.findByCredential(userEmail);
+    if (existingByEmail) {
+      if (!req.body?.email) {
+        userEmail = `${cleanEmpId.toLowerCase().replace(/[^a-z0-9]/g, '')}.${Date.now().toString().slice(-4)}@aai.local`;
+      } else {
+        return sendError(res, `Email '${userEmail}' is already associated with another account.`, 409);
+      }
+    }
 
     const newUser = await userRepository.create({
-      username: cleanEmpId.toLowerCase(),
+      username: cleanUsername,
       name: employee.name,
       email: userEmail,
       password: tempPassword,
-      role: 'EMPLOYEE',
+      role: req.body?.role === 'ADMIN' ? 'ADMIN' : 'EMPLOYEE',
       employeeId: cleanEmpId,
       designation: employee.designation || '',
       department: employee.department || '',
@@ -447,8 +512,8 @@ export const createEmployeeLogin = async (req, res, next) => {
         employeeId: cleanEmpId,
         username: newUser.username,
         name: employee.name,
-        role: 'EMPLOYEE',
-        autoGenerated: true
+        role: newUser.role,
+        autoGenerated: !req.body?.password
       },
       status: 'SUCCESS'
     });
@@ -456,10 +521,14 @@ export const createEmployeeLogin = async (req, res, next) => {
     return sendSuccess(res, {
       employeeId: cleanEmpId,
       name: employee.name,
-      username: cleanEmpId,
+      username: rawUsername,
+      role: newUser.role,
       tempPassword: tempPassword
     }, 'Login account created successfully', 201);
   } catch (error) {
+    if (error.code === 11000) {
+      return sendError(res, 'An account with matching credentials or email already exists.', 409);
+    }
     next(error);
   }
 };

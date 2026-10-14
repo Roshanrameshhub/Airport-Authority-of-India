@@ -56,6 +56,16 @@ const employeeSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  intercom: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  ipAddress: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true

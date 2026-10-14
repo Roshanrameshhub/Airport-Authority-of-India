@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import Employee from '../models/Employee.js';
+import AssetAssignment from '../models/AssetAssignment.js';
+import { generateEmployeeIdAsync } from '../utils/idGenerator.js';
 import { escapeRegex } from '../utils/regexHelper.js';
 
 const memoryEmployees = new Map();
@@ -111,6 +113,27 @@ const seedEmployees = () => {
 
 seedEmployees();
 
+const getActiveAssignmentCount = async (employeeId) => {
+  if (!employeeId) return 0;
+  if (mongoose.connection.readyState === 1) {
+    try {
+      return await AssetAssignment.countDocuments({
+        employeeId: employeeId.trim().toUpperCase(),
+        status: 'ACTIVE'
+      });
+    } catch {
+      return 0;
+    }
+  }
+  try {
+    const { assignmentRepository } = await import('./assignmentRepository.js');
+    const assignments = await assignmentRepository.findByEmployeeId(employeeId);
+    return (assignments || []).filter(a => a.status === 'ACTIVE').length;
+  } catch {
+    return 0;
+  }
+};
+
 export const employeeRepository = {
   find: async ({ search = '', department = '', floor = '', employeeType = '', employmentCategory = '', page = 1, limit = 10, isActive = true }) => {
     const skip = (Number(page) - 1) * Number(limit);
@@ -147,7 +170,28 @@ export const employeeRepository = {
         .skip(skip)
         .limit(Number(limit));
 
-      return { items, total };
+      // Authoritative dynamic active assignment count calculation
+      const empIds = items.map(e => e.employeeId);
+      const countMap = new Map();
+      if (empIds.length > 0) {
+        try {
+          const counts = await AssetAssignment.aggregate([
+            { $match: { employeeId: { $in: empIds }, status: 'ACTIVE' } },
+            { $group: { _id: '$employeeId', count: { $sum: 1 } } }
+          ]);
+          counts.forEach(c => countMap.set(c._id, c.count));
+        } catch (aggErr) {
+          // If aggregation fails, fallback smoothly
+        }
+      }
+
+      const enhancedItems = items.map(emp => {
+        const obj = emp.toObject ? emp.toObject() : { ...emp };
+        obj.assignedAssetsCount = countMap.get(emp.employeeId) ?? emp.assignedAssetsCount ?? 0;
+        return obj;
+      });
+
+      return { items: enhancedItems, total };
     }
 
     // In-memory fallback
@@ -179,21 +223,37 @@ export const employeeRepository = {
     list.sort((a, b) => a.name.localeCompare(b.name));
     const total = list.length;
     const items = list.slice(skip, skip + Number(limit));
+    const enhancedItems = await Promise.all(items.map(async (emp) => {
+      const activeCount = await getActiveAssignmentCount(emp.employeeId);
+      return { ...emp, assignedAssetsCount: activeCount };
+    }));
 
-    return { items, total };
+    return { items: enhancedItems, total };
   },
 
   findById: async (id) => {
     if (mongoose.connection.readyState === 1) {
+      let emp;
       if (mongoose.isValidObjectId(id)) {
-        return Employee.findById(id);
+        emp = await Employee.findById(id);
+      } else {
+        emp = await Employee.findOne({ employeeId: id.toUpperCase() });
       }
-      return Employee.findOne({ employeeId: id.toUpperCase() });
+      if (!emp) return null;
+      try {
+        const activeCount = await getActiveAssignmentCount(emp.employeeId);
+        const obj = emp.toObject ? emp.toObject() : { ...emp };
+        obj.assignedAssetsCount = activeCount;
+        return obj;
+      } catch (err) {
+        return emp;
+      }
     }
 
     for (const emp of memoryEmployees.values()) {
       if (emp._id === id || emp.employeeId.toUpperCase() === id.toUpperCase()) {
-        return emp;
+        const activeCount = await getActiveAssignmentCount(emp.employeeId);
+        return { ...emp, assignedAssetsCount: activeCount };
       }
     }
     return null;
@@ -202,9 +262,23 @@ export const employeeRepository = {
   findByEmployeeId: async (employeeId) => {
     const cleanId = employeeId.trim().toUpperCase();
     if (mongoose.connection.readyState === 1) {
-      return Employee.findOne({ employeeId: cleanId });
+      const emp = await Employee.findOne({ employeeId: cleanId });
+      if (!emp) return null;
+      try {
+        const activeCount = await getActiveAssignmentCount(emp.employeeId);
+        const obj = emp.toObject ? emp.toObject() : { ...emp };
+        obj.assignedAssetsCount = activeCount;
+        return obj;
+      } catch (err) {
+        return emp;
+      }
     }
-    return memoryEmployees.get(cleanId) || null;
+    const memEmp = memoryEmployees.get(cleanId);
+    if (memEmp) {
+      const activeCount = await getActiveAssignmentCount(memEmp.employeeId);
+      return { ...memEmp, assignedAssetsCount: activeCount };
+    }
+    return null;
   },
 
   findByName: async (name) => {
@@ -222,7 +296,10 @@ export const employeeRepository = {
   },
 
   create: async (data) => {
-    const cleanId = data.employeeId.trim().toUpperCase();
+    let cleanId = data.employeeId ? data.employeeId.trim().toUpperCase() : '';
+    if (!cleanId) {
+      cleanId = await generateEmployeeIdAsync();
+    }
 
     if (mongoose.connection.readyState === 1) {
       const emp = new Employee({
@@ -248,30 +325,43 @@ export const employeeRepository = {
 
   update: async (id, data) => {
     if (mongoose.connection.readyState === 1) {
-      return Employee.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+      if (mongoose.isValidObjectId(id)) {
+        return Employee.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+      }
+      return Employee.findOneAndUpdate({ employeeId: id.toUpperCase() }, data, { new: true, runValidators: true });
     }
 
-    const emp = await employeeRepository.findById(id);
-    if (!emp) return null;
-
-    Object.assign(emp, data, { updatedAt: new Date() });
-    if (data.employeeId && data.employeeId.toUpperCase() !== emp.employeeId) {
-      memoryEmployees.delete(emp.employeeId);
-      emp.employeeId = data.employeeId.toUpperCase();
-      memoryEmployees.set(emp.employeeId, emp);
+    for (const [key, emp] of memoryEmployees.entries()) {
+      if (emp._id === id || emp.employeeId.toUpperCase() === id.toUpperCase()) {
+        Object.assign(emp, data, { updatedAt: new Date() });
+        if (data.employeeId && data.employeeId.toUpperCase() !== emp.employeeId) {
+          memoryEmployees.delete(key);
+          emp.employeeId = data.employeeId.toUpperCase();
+          memoryEmployees.set(emp.employeeId, emp);
+        } else {
+          memoryEmployees.set(key, emp);
+        }
+        return emp;
+      }
     }
-    return emp;
+    return null;
   },
 
   delete: async (id) => {
     if (mongoose.connection.readyState === 1) {
-      return Employee.findByIdAndUpdate(id, { isActive: false }, { new: true });
+      if (mongoose.isValidObjectId(id)) {
+        return Employee.findByIdAndUpdate(id, { isActive: false }, { new: true });
+      }
+      return Employee.findOneAndUpdate({ employeeId: id.toUpperCase() }, { isActive: false }, { new: true });
     }
-    const emp = await employeeRepository.findById(id);
-    if (emp) {
-      emp.isActive = false;
-      emp.updatedAt = new Date();
+    for (const [key, emp] of memoryEmployees.entries()) {
+      if (emp._id === id || emp.employeeId.toUpperCase() === id.toUpperCase()) {
+        emp.isActive = false;
+        emp.updatedAt = new Date();
+        memoryEmployees.set(key, emp);
+        return emp;
+      }
     }
-    return emp;
+    return null;
   }
 };

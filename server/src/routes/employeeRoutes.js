@@ -22,6 +22,7 @@ router.get('/:id/account-status', protect, getEmployeeAccountStatus);
 router.post('/:id/reset-password', protect, authorize('ADMIN'), resetEmployeePassword);
 router.post('/:id/toggle-login', protect, authorize('ADMIN'), toggleEmployeeLogin);
 router.post('/:id/create-login', protect, authorize('ADMIN'), createEmployeeLogin);
+router.post('/:id/login', protect, authorize('ADMIN'), createEmployeeLogin);
 router.get('/:id', protect, getEmployeeById);
 router.post('/', protect, authorize('ADMIN'), validate(createEmployeeSchema), createEmployee);
 router.put('/:id', protect, authorize('ADMIN'), validate(updateEmployeeSchema), updateEmployee);

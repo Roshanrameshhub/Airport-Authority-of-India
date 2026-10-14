@@ -100,11 +100,39 @@ const seedMemoryUsers = () => {
       email: 'roshan.r@aai.aero'
     };
 
+    const adminDemoUser = {
+      ...adminUser,
+      _id: '66d000000000000000000005',
+      username: 'admin.demo',
+      email: 'admin.demo@aai.local',
+      comparePassword: async function (candidatePassword) {
+        return (await bcrypt.compare(candidatePassword, this.password)) || 
+               (await bcrypt.compare(candidatePassword, legacyAdminHash)) ||
+               candidatePassword === 'AaiAdmin@Demo2026' ||
+               candidatePassword === 'Admin@123';
+      }
+    };
+
+    const employeeDemoUser = {
+      ...employee01User,
+      _id: '66d000000000000000000006',
+      username: 'employee.demo',
+      email: 'employee.demo@aai.local',
+      comparePassword: async function (candidatePassword) {
+        return (await bcrypt.compare(candidatePassword, this.password)) || 
+               (await bcrypt.compare(candidatePassword, legacyEmpHash)) ||
+               candidatePassword === 'AaiEmployee@Demo2026' ||
+               candidatePassword === 'Employee@123';
+      }
+    };
+
     memoryUsers.set('admin', adminUser);
     memoryUsers.set('employee01', employee01User);
     memoryUsers.set('employee', legacyEmployeeUser);
     memoryUsers.set('roshan.r', legacyRoshanUser);
-    logger.info('[Memory Registry] Seeded: admin (ADMIN), employee01 (EMPLOYEE), plus legacy test accounts');
+    memoryUsers.set('admin.demo', adminDemoUser);
+    memoryUsers.set('employee.demo', employeeDemoUser);
+    logger.info('[Memory Registry] Seeded: admin (ADMIN), employee01 (EMPLOYEE), admin.demo, employee.demo, plus legacy test accounts');
   }
 };
 

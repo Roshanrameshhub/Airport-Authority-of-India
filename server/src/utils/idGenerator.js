@@ -82,3 +82,9 @@ export const generateTicketId = (sequenceNumber) => {
     : Math.floor(1000 + Math.random() * 9000);
   return `AAI-TKT-${year}-${seq}`;
 };
+
+export const generateEmployeeIdAsync = async (session = null) => {
+  const seqNum = await getNextSequence('employee_seq', session);
+  return `AAI-EMP-${String(seqNum).padStart(4, '0')}`;
+};
+

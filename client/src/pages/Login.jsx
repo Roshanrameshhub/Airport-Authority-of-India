@@ -27,10 +27,36 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
-      await login(credential, password);
-      navigate(from, { replace: true });
+      const user = await login(credential, password);
+      if (user?.role === 'ADMIN') {
+        const dest = from && from !== '/login' ? from : '/';
+        navigate(dest, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDemoLogin = async (demoCred, demoPass) => {
+    setError('');
+    setIsSubmitting(true);
+    setCredential(demoCred);
+    setPassword(demoPass);
+
+    try {
+      const user = await login(demoCred, demoPass);
+      if (user?.role === 'ADMIN') {
+        const dest = from && from !== '/login' ? from : '/';
+        navigate(dest, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch (err) {
+      setError(err.message || 'Demo authentication failed. Please verify your credentials.');
     } finally {
       setIsSubmitting(false);
     }
@@ -211,52 +237,132 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo Accounts Quick-Fill */}
-          <div style={{
-            marginTop: '0.9rem',
-            paddingTop: '0.75rem',
-            borderTop: '1px solid var(--border-subtle)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-              Demo / Development Accounts
+          {/* Demo Cards — Compact, Side by Side, Directly Clickable */}
+          <div
+            id="demo-credentials-section"
+            style={{
+              marginTop: '0.9rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--border-subtle)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '0.45rem',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  color: 'var(--color-text-main)',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Demo Accounts
+              </span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                  color: 'var(--color-brand-500, #0284c7)',
+                  fontWeight: 600,
+                  border: '1px solid rgba(2, 132, 199, 0.25)',
+                }}
+              >
+                1-Click Sign In
+              </span>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+              {/* Admin Demo Card */}
               <button
                 type="button"
-                onClick={() => { setCredential('Admin'); setPassword('Admin@123'); }}
+                onClick={() => handleDemoLogin('admin', 'Admin@123')}
+                disabled={isSubmitting}
+                className="demo-card-btn"
+                id="demo-admin-login-btn"
+                data-testid="demo-admin-card"
+                title="Click to log in directly as System Administrator"
                 style={{
-                  padding: '0.4rem 0.55rem',
-                  fontSize: '0.74rem',
+                  padding: '0.5rem 0.6rem',
                   borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-subtle, rgba(255,255,255,0.04))',
                   border: '1px solid var(--border-strong)',
-                  background: 'rgba(255,255,255,0.04)',
                   color: 'var(--color-text-main)',
-                  cursor: 'pointer',
-                  textAlign: 'left'
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.15rem',
+                  opacity: isSubmitting ? 0.6 : 1,
+                  transition: 'border-color var(--transition-fast), background-color var(--transition-fast)',
                 }}
-                id="demo-admin-fill-btn"
               >
-                <div style={{ fontWeight: 600, color: 'var(--color-brand-500, #0284c7)' }}>Admin</div>
-                <div style={{ fontSize: '0.66rem', color: 'var(--color-text-muted)' }}>Admin@123</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.74rem', color: 'var(--color-brand-500, #0284c7)' }}>
+                    Admin
+                  </span>
+                  <span style={{ fontSize: '0.58rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                    Panel
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.66rem', color: 'var(--color-text-secondary)', lineHeight: 1.25 }}>
+                  <code style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.66rem', color: 'var(--color-text-main)' }}>admin</code>
+                  <span style={{ color: 'var(--color-text-muted)' }}> / </span>
+                  <code style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.66rem', color: 'var(--color-text-muted)' }}>Admin@123</code>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--color-brand-600, #0284c7)', fontWeight: 600, marginTop: '0.15rem' }}>
+                  Sign In to Panel →
+                </div>
               </button>
+
+              {/* Employee Demo Card */}
               <button
                 type="button"
-                onClick={() => { setCredential('Employee01'); setPassword('Employee@123'); }}
+                onClick={() => handleDemoLogin('employee01', 'Employee@123')}
+                disabled={isSubmitting}
+                className="demo-card-btn"
+                id="demo-employee-login-btn"
+                data-testid="demo-employee-card"
+                title="Click to log in directly as Demo Employee"
                 style={{
-                  padding: '0.4rem 0.55rem',
-                  fontSize: '0.74rem',
+                  padding: '0.5rem 0.6rem',
                   borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--color-bg-subtle, rgba(255,255,255,0.04))',
                   border: '1px solid var(--border-strong)',
-                  background: 'rgba(255,255,255,0.04)',
                   color: 'var(--color-text-main)',
-                  cursor: 'pointer',
-                  textAlign: 'left'
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.15rem',
+                  opacity: isSubmitting ? 0.6 : 1,
+                  transition: 'border-color var(--transition-fast), background-color var(--transition-fast)',
                 }}
-                id="demo-employee-fill-btn"
               >
-                <div style={{ fontWeight: 600, color: 'var(--color-brand-500, #0284c7)' }}>Employee01</div>
-                <div style={{ fontSize: '0.66rem', color: 'var(--color-text-muted)' }}>Employee@123</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontWeight: 700, fontSize: '0.74rem', color: 'var(--color-brand-500, #0284c7)' }}>
+                    Employee
+                  </span>
+                  <span style={{ fontSize: '0.58rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                    Desk
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.66rem', color: 'var(--color-text-secondary)', lineHeight: 1.25 }}>
+                  <code style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.66rem', color: 'var(--color-text-main)' }}>employee01</code>
+                  <span style={{ color: 'var(--color-text-muted)' }}> / </span>
+                  <code style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: '0.66rem', color: 'var(--color-text-muted)' }}>Employee@123</code>
+                </div>
+                <div style={{ fontSize: '0.62rem', color: 'var(--color-brand-600, #0284c7)', fontWeight: 600, marginTop: '0.15rem' }}>
+                  Sign In to Desk →
+                </div>
               </button>
             </div>
           </div>

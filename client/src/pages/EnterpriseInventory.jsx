@@ -8,7 +8,7 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, X, Layers,
   Cpu, MapPin, ShoppingCart, Shield, Activity, Users, AlertCircle,
   CheckCircle, Clock, Package, Settings, Plus, Edit3, Archive,
-  CheckCircle2, QrCode, Printer, ClipboardCheck, ShieldAlert,
+  CheckCircle2, Printer, ClipboardCheck, ShieldAlert,
   History, Link as LinkIcon, Unlink, FileText
 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
@@ -213,7 +213,7 @@ export default function EnterpriseInventory() {
   // Filters
   const [search, setSearch] = useState(initSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initSearch);
-  const [filterCategory, setFilterCategory] = useState(initCategory);
+  const [filterCategory, setFilterCategory] = useState(initCategory.toLowerCase() === 'all' ? '' : initCategory);
   const [filterStatus, setFilterStatus] = useState(initStatus);
   const [filterEmployeeType, setFilterEmployeeType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState(initDepartment);
@@ -271,12 +271,6 @@ export default function EnterpriseInventory() {
   const [linkSearchResults, setLinkSearchResults] = useState([]);
   const [linkSearching, setLinkSearching] = useState(false);
 
-  // Physical Asset Tag Modal State
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
-  const [tagAsset, setTagAsset] = useState(null);
-  const [tagQrData, setTagQrData] = useState(null);
-  const [tagLoading, setTagLoading] = useState(false);
-
   // Physical Verification Campaign State
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
@@ -304,6 +298,41 @@ export default function EnterpriseInventory() {
   const [locationsList, setLocationsList] = useState([]);
   const [vendorsList, setVendorsList] = useState([]);
   const [dashboardStats, setDashboardStats] = useState(null);
+
+  // Combined authoritative categories for dropdown:
+  // Starts with required categories: All (as default empty option), CPU, Monitor, Camera, Keyboard, Mouse, Lap Mouse
+  // Followed by all other existing categories
+  const categoryOptions = useMemo(() => {
+    const required = ['CPU', 'Monitor', 'Camera', 'Keyboard', 'Mouse', 'Lap Mouse'];
+    const requiredLower = new Set(required.map(r => r.toLowerCase()));
+    const coveredKeys = new Set([
+      ...requiredLower,
+      'camera / cctv',
+      'cctv',
+      'laptop mse',
+      'lap mse',
+      'lapmouse'
+    ]);
+
+    const activeFormCats = getActiveCategoryConfigs().map(c => c.name);
+    const standardCats = ['Desktop PC', 'Laptop', 'Network Switch', 'Online UPS', 'Printer', 'Scanner'];
+    const allCandidates = [...categories, ...activeFormCats, ...standardCats];
+
+    const seen = new Set(requiredLower);
+    const others = [];
+
+    for (const cat of allCandidates) {
+      if (!cat || typeof cat !== 'string') continue;
+      const trimmed = cat.trim();
+      const lower = trimmed.toLowerCase();
+      if (!coveredKeys.has(lower) && !seen.has(lower)) {
+        seen.add(lower);
+        others.push(trimmed);
+      }
+    }
+
+    return [...required, ...others];
+  }, [categories]);
 
   const tableRef = useRef(null);
 
@@ -345,7 +374,7 @@ export default function EnterpriseInventory() {
         limit: String(pageSize)
       });
       if (debouncedSearch) params.set('search', debouncedSearch);
-      if (filterCategory) params.set('category', filterCategory);
+      if (filterCategory && filterCategory.toLowerCase() !== 'all') params.set('category', filterCategory);
       if (filterStatus) params.set('status', filterStatus);
       if (filterDepartment) params.set('department', filterDepartment);
       if (filterEmployeeType) params.set('employeeType', filterEmployeeType);
@@ -438,7 +467,7 @@ export default function EnterpriseInventory() {
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.append('search', debouncedSearch);
-      if (filterCategory) params.append('category', filterCategory);
+      if (filterCategory && filterCategory.toLowerCase() !== 'all') params.append('category', filterCategory);
       if (filterStatus) params.append('status', filterStatus);
       if (filterDepartment) params.append('department', filterDepartment);
       if (filterEmployeeType) params.append('employeeType', filterEmployeeType);
@@ -845,29 +874,9 @@ export default function EnterpriseInventory() {
     }
   };
 
-  // ─── Physical Asset Tag & QR ─────────────────────────────────────────────────
-
-  const handleOpenTagModal = async (asset) => {
-    setTagAsset(asset);
-    setIsTagModalOpen(true);
-    setTagLoading(true);
-    setTagQrData(null);
-    try {
-      const tokenVal = token || localStorage.getItem('aai_ams_token');
-      const res = await fetch(`/api/v1/tags/asset/${asset.assetId}/qr`, {
-        headers: tokenVal ? { Authorization: `Bearer ${tokenVal}` } : {}
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTagQrData(data.data);
-      }
-    } catch (err) {
-      console.error('Failed to load asset QR tag:', err);
-    } finally {
-      setTagLoading(false);
-    }
-  };
-
+  // ─── Physical Asset Tag PDF Export ───────────────────────────────────────────
+  // Note: handleOpenTagModal (QR UI) was removed from asset operations per Requirement 6.
+  // Physical equipment identification tag printing is preserved via handlePrintTagPdf.
   const handlePrintTagPdf = async (assetId) => {
     try {
       await downloadAuthenticatedPdf(
@@ -1127,12 +1136,12 @@ export default function EnterpriseInventory() {
           {/* Category filter */}
           <select
             id="inv-filter-category"
-            value={filterCategory}
+            value={filterCategory.toLowerCase() === 'all' ? '' : filterCategory}
             onChange={e => { setFilterCategory(e.target.value); handlePageReset(); }}
             style={{ padding: '8px 12px', borderRadius: '8px', border: `1px solid ${t.border}`, background: t.cardBg, color: t.textPrimary, fontSize: '13px', minWidth: '140px' }}
           >
-            <option value="">All Categories</option>
-            {categories.map(c => (
+            <option value="">All</option>
+            {categoryOptions.map(c => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -1413,15 +1422,6 @@ export default function EnterpriseInventory() {
                               <Edit3 size={13} />
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleOpenTagModal(asset); }}
-                            style={{ padding: '5px 7px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.cardBg, color: '#00205B', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
-                            title="Print Physical Asset Tag & QR"
-                            id={`tag-btn-${asset.assetId}`}
-                          >
-                            <QrCode size={13} />
-                          </button>
                           {isAdmin && asset.status !== 'RETIRED' && (
                             <button
                               type="button"
@@ -1722,11 +1722,13 @@ export default function EnterpriseInventory() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleOpenTagModal(selectedAsset)}
+                      onClick={() => handlePrintTagPdf(selectedAsset.assetId)}
                       style={{ flex: '1 1 140px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', borderRadius: '6px', border: `1px solid ${t.border}`, background: t.cardBg, color: '#00205B', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                      title="Download Physical Equipment Identification Tag (PDF)"
+                      id="drawer-print-tag-btn"
                     >
-                      <QrCode size={14} />
-                      <span>Print QR Tag</span>
+                      <Printer size={14} />
+                      <span>Print Tag (PDF)</span>
                     </button>
                     {isAdmin && selectedAsset.status !== 'RETIRED' && (
                       <button
@@ -2214,10 +2216,9 @@ export default function EnterpriseInventory() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Make / Company *</label>
+                    <label className="form-label">Make / Company</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.make}
                       onChange={(e) => setEditFormData({ ...editFormData, make: e.target.value })}
@@ -2226,10 +2227,9 @@ export default function EnterpriseInventory() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Model *</label>
+                    <label className="form-label">Model</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.model}
                       onChange={(e) => setEditFormData({ ...editFormData, model: e.target.value })}
@@ -2250,10 +2250,9 @@ export default function EnterpriseInventory() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Serial Number *</label>
+                    <label className="form-label">Serial Number</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.serialNumber}
                       onChange={(e) => setEditFormData({ ...editFormData, serialNumber: e.target.value })}
@@ -2310,10 +2309,9 @@ export default function EnterpriseInventory() {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
-                    <label className="form-label">Airport / Facility Location *</label>
+                    <label className="form-label">Airport / Facility Location</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.location}
                       onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
@@ -2322,10 +2320,9 @@ export default function EnterpriseInventory() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Department *</label>
+                    <label className="form-label">Department</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.department}
                       onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
@@ -2336,10 +2333,9 @@ export default function EnterpriseInventory() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
-                    <label className="form-label">Floor / Level *</label>
+                    <label className="form-label">Floor / Level</label>
                     <input
                       type="text"
-                      required
                       className="form-input"
                       value={editFormData.floor}
                       onChange={(e) => setEditFormData({ ...editFormData, floor: e.target.value })}
@@ -2431,10 +2427,9 @@ export default function EnterpriseInventory() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
-                    <label className="form-label">Install Date *</label>
+                    <label className="form-label">Install Date</label>
                     <input
                       type="date"
-                      required
                       className="form-input"
                       value={editFormData.installDate}
                       onChange={(e) => setEditFormData({ ...editFormData, installDate: e.target.value })}
@@ -2454,10 +2449,9 @@ export default function EnterpriseInventory() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Warranty End Date *</label>
+                    <label className="form-label">Warranty End Date</label>
                     <input
                       type="date"
-                      required
                       className="form-input"
                       value={editFormData.warrantyEndDate}
                       onChange={(e) => setEditFormData({ ...editFormData, warrantyEndDate: e.target.value })}
@@ -2504,133 +2498,6 @@ export default function EnterpriseInventory() {
               />
             )}
           </form>
-        </Modal>
-      )}
-
-      {/* ── Physical Asset Tag Printing Modal ── */}
-      {isTagModalOpen && tagAsset && (
-        <Modal
-          isOpen={isTagModalOpen}
-          onClose={() => setIsTagModalOpen(false)}
-          title="Physical Equipment Identification Tag"
-          subtitle="Civil Aviation Regulatory Standard • Barcode / QR Interlock"
-          size="md"
-          id="asset-tag-modal"
-          footer={
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-              <span style={{ fontSize: '12px', color: t.textMuted }}>
-                Thermal / Laser 4" x 2" Label
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsTagModalOpen(false)}
-                  className="btn btn-secondary"
-                  id="tag-modal-close-btn"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePrintTagPdf(tagAsset.assetId)}
-                  className="btn btn-primary"
-                  id="print-tag-pdf-btn"
-                >
-                  <Printer size={15} />
-                  <span>Print Sticker Tag (PDF)</span>
-                </button>
-              </div>
-            </div>
-          }
-        >
-          <div style={{
-            border: '2px solid #00205B',
-            borderRadius: '6px',
-            overflow: 'hidden',
-            background: '#ffffff',
-            margin: '0 auto',
-            maxWidth: '420px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-          }}>
-            {/* Header Banner */}
-            <div style={{ background: '#00205B', color: '#ffffff', textAlign: 'center', padding: '6px 8px' }}>
-              <div style={{ fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>
-                AIRPORTS AUTHORITY OF INDIA
-              </div>
-              <div style={{ fontSize: '10px', opacity: 0.9 }}>
-                REGIONAL OFFICE • IT ASSET IDENTIFICATION TAG
-              </div>
-            </div>
-
-            {/* Tag Body */}
-            <div style={{ padding: '12px', display: 'flex', gap: '12px', alignItems: 'center', color: '#0f172a' }}>
-              <div style={{ flex: 1, fontSize: '12px' }}>
-                <div style={{
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 800,
-                  fontSize: '14px',
-                  color: '#00205B',
-                  fontFamily: 'monospace',
-                  marginBottom: '6px'
-                }}>
-                  {tagAsset.assetId}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '4px', marginBottom: '3px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Category:</span>
-                  <span style={{ fontWeight: 600 }}>{tagAsset.category}</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '4px', marginBottom: '3px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Model:</span>
-                  <span>{tagAsset.make} {tagAsset.model}</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '4px', marginBottom: '3px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Serial No:</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{tagAsset.serialNumber}</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '4px', marginBottom: '3px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Location:</span>
-                  <span>{tagAsset.department} ({tagAsset.floor || 'N/A'})</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '4px' }}>
-                  <span style={{ color: '#64748b', fontWeight: 600 }}>Warranty:</span>
-                  <span style={{ color: '#047857', fontWeight: 600 }}>{tagAsset.warrantyStatus}</span>
-                </div>
-              </div>
-
-              {/* QR Code Column */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100px' }}>
-                {tagLoading ? (
-                  <div style={{ width: 30, height: 30, border: '2px solid #cbd5e1', borderTopColor: '#00205B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                ) : tagQrData?.qrDataUrl ? (
-                  <>
-                    <img
-                      src={tagQrData.qrDataUrl}
-                      alt="Asset Verification QR"
-                      style={{ width: '84px', height: '84px', border: '1px solid #e2e8f0', borderRadius: '4px' }}
-                    />
-                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#00205B', marginTop: '4px' }}>
-                      SCAN TO VERIFY
-                    </span>
-                  </>
-                ) : (
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Generating QR...</span>
-                )}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div style={{ background: '#00205B', color: '#ffffff', textAlign: 'center', fontSize: '9px', padding: '4px', letterSpacing: '0.5px' }}>
-              PROPERTY OF AAI • TAMPERING OR REMOVAL IS A STRICT REGULATORY VIOLATION
-            </div>
-          </div>
         </Modal>
       )}
 
