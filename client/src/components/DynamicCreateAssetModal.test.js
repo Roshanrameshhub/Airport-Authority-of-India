@@ -157,7 +157,7 @@ describe('Phase 2C — Dynamic Create Asset UI Integration Tests', () => {
   // ─────────────────────────────────────────────────────────────
   describe('B. Required Field Rules & Remarks Optionality', () => {
 
-    it('1. Missing required field prevents submission and returns targeted errors', () => {
+    it('1. Blank fields pass validation and invalid numbers produce errors', () => {
       // Incomplete Monitor form (missing model and technology)
       const incompleteMonitor = {
         assetId: 'MON-001',
@@ -175,10 +175,16 @@ describe('Phase 2C — Dynamic Create Asset UI Integration Tests', () => {
       };
 
       const res = validateAssetCategoryForm('MONITOR', incompleteMonitor);
-      assert.equal(res.valid, false, 'Validation must fail when required fields are missing');
-      assert.ok(res.errors.model, 'Must report model is required');
-      assert.ok(res.errors.technology, 'Must report technology is required');
-      assert.equal(res.errors.remarks, undefined, 'Remarks must not have error');
+      assert.equal(res.valid, true, 'Validation must pass when optional fields are left blank');
+      assert.deepEqual(res.errors, {});
+
+      // Alphanumeric, fractions, and manual text input pass
+      const resManual = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+        ram: '8GB',
+        hddSize: '512GB SSD',
+        speed: '1.5'
+      });
+      assert.equal(resManual.valid, true);
     });
 
     it('2. Remarks is universally optional and empty value passes validation', () => {

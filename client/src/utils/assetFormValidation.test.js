@@ -15,18 +15,18 @@ describe('Asset Form Validation (Phase 2B)', () => {
     assert.equal(isValueEmpty(42, 'number'), false);
     assert.equal(isValueEmpty('0', 'number'), false);
     assert.equal(isValueEmpty('', 'number'), true);
-    assert.equal(isValueEmpty('abc', 'number'), true);
+    assert.equal(isValueEmpty('8GB', 'number'), false);
 
     // Boolean checks
     assert.equal(isValueEmpty(false, 'boolean'), false, 'false must be valid for booleans');
     assert.equal(isValueEmpty(true, 'boolean'), false);
   });
 
-  it('2. Missing required Make produces validation error where Make exists (e.g. Monitor)', () => {
+  it('2. Missing/blank fields are allowed and pass validation (e.g. Monitor with empty Make)', () => {
     const res = validateAssetCategoryForm('MONITOR', {
       assetId: 'MON-01',
       serialNumber: 'SN-01',
-      // make is missing!
+      // make is omitted/blank!
       model: 'P2419H',
       technology: 'IPS',
       installDate: '2025-01-01',
@@ -36,9 +36,8 @@ describe('Asset Form Validation (Phase 2B)', () => {
       warrantyAmcDate: '2028-01-01',
       data: 'HDMI'
     });
-    assert.equal(res.valid, false);
-    assert.ok(res.errors.make, 'Must have Make error');
-    assert.equal(res.errors.make, 'Make is required');
+    assert.equal(res.valid, true);
+    assert.equal(res.errors.make, undefined);
   });
 
   it('3. Missing required Make does NOT produce an error for Switches (which has no Make)', () => {
@@ -52,44 +51,44 @@ describe('Asset Form Validation (Phase 2B)', () => {
     assert.equal(res.errors.make, undefined);
   });
 
-  it('4. Missing required Technology produces an error where Technology exists (e.g. Printer)', () => {
-    const res = validateAssetCategoryForm('PRINTER', {
-      assetId: 'PTR-01',
-      serialNumber: 'SN-02',
-      make: 'HP',
-      model: 'LaserJet Pro',
-      // technology missing
-      installDate: '2025-01-01',
-      suppliedBy: 'HP',
-      supplyOrderNo: 'SO-456',
-      warrantyAmcType: 'Warranty',
-      warrantyAmcDate: '2028-01-01',
-      toner: 'HP 88A'
-    });
-    assert.equal(res.valid, false);
-    assert.ok(res.errors.technology, 'Must report technology error');
-    assert.equal(res.errors.technology, 'Technology is required');
-  });
-
-  it('5. Missing Warranty/AMC produces an error where Warranty/AMC exists (e.g. UPS)', () => {
-    const res = validateAssetCategoryForm('UPS', {
+  it('4. Allows alphanumeric, decimal, and fractional values in numeric/quantitative fields (e.g. 8GB, 512GB SSD, 1/2, 1.5)', () => {
+    const resDecimal = validateAssetCategoryForm('UPS', {
       assetId: 'UPS-01',
-      serialNumber: 'SN-03',
-      make: 'APC',
-      model: 'Smart-UPS 1000',
-      capacity: 1000,
-      technology: 'Line-Interactive',
-      installDate: '2025-01-01',
-      suppliedBy: 'Schneider',
-      supplyOrderNo: 'SO-789'
-      // warrantyAmcType and warrantyAmcDate missing
+      capacity: '1500.5' // decimal value
     });
-    assert.equal(res.valid, false);
-    assert.ok(res.errors.warrantyAmcType);
-    assert.ok(res.errors.warrantyAmcDate);
+    assert.equal(resDecimal.valid, true);
+    assert.equal(resDecimal.errors.capacity, undefined);
+
+    const resFraction = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+      ram: '1/2' // fractional value
+    });
+    assert.equal(resFraction.valid, true);
+    assert.equal(resFraction.errors.ram, undefined);
+
+    const resAlphanumeric = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+      ram: '8GB',
+      hddSize: '512GB SSD'
+    });
+    assert.equal(resAlphanumeric.valid, true);
+    assert.equal(resAlphanumeric.errors.ram, undefined);
+    assert.equal(resAlphanumeric.errors.hddSize, undefined);
   });
 
-  it('6. Projector does NOT require Warranty/AMC', () => {
+  it('5. Allows manual typing and validates date format when entered', () => {
+    const resValid = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+      installDate: '2025-01-01'
+    });
+    assert.equal(resValid.valid, true);
+    assert.equal(resValid.errors.installDate, undefined);
+
+    const resInvalidDate = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+      installDate: 'not-a-date'
+    });
+    assert.equal(resInvalidDate.valid, false);
+    assert.ok(resInvalidDate.errors.installDate);
+  });
+
+  it('6. Projector does NOT require Warranty/AMC and allows blank fields', () => {
     const res = validateAssetCategoryForm('PROJECTOR', {
       make: 'Epson',
       model: 'EB-X06',
@@ -165,5 +164,16 @@ describe('Asset Form Validation (Phase 2B)', () => {
     const res = validateAssetCategoryForm('MOUSE', original);
     assert.equal(res.valid, true);
     assert.equal(original.assetId, 'MSE-01');
+  });
+
+  it('11. Accepts valid alphanumeric values in text fields without restrictive errors', () => {
+    const res = validateAssetCategoryForm('MONITOR', {
+      assetId: 'AAI-MON-2026-X99',
+      serialNumber: 'SN#123-ABC/456',
+      model: 'UltraSharp-U2415-RevA01',
+      supplyOrderNo: 'GEMC-511687720241092'
+    });
+    assert.equal(res.valid, true);
+    assert.equal(Object.keys(res.errors).length, 0);
   });
 });

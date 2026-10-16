@@ -49,7 +49,7 @@ export const createAssetSchema = z.object({
   purchaseDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'Purchase Date must be a valid date'
   }),
-  purchaseCost: z.number().min(0, 'Purchase cost cannot be negative').optional().nullable(),
+  purchaseCost: z.union([z.number(), z.string()]).optional().nullable(),
   amcApplicable: z.boolean().optional().default(false),
   amcContractId: z.string().optional().default(''),
   amcEndDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
@@ -107,11 +107,11 @@ export const createAssetSchema = z.object({
   computerConfig: z.object({
     processor: z.string().optional().default(''),
     processorSpeed: z.string().optional().default(''),
-    ramSizeGb: z.number().optional().nullable(),
+    ramSizeGb: z.union([z.number(), z.string()]).optional().nullable(),
     ramType: z.string().optional().default(''),
-    ramSlots: z.number().optional().nullable(),
+    ramSlots: z.union([z.number(), z.string()]).optional().nullable(),
     storageType: z.string().optional().default(''),
-    storageCapacityGb: z.number().optional().nullable(),
+    storageCapacityGb: z.union([z.number(), z.string()]).optional().nullable(),
     storageModel: z.string().optional().default(''),
     graphicsCard: z.string().optional().default(''),
     opticalDrive: z.string().optional().default(''),
@@ -124,18 +124,18 @@ export const createAssetSchema = z.object({
     hostname: z.string().optional().default('')
   }).partial().optional().default({}),
   displayConfig: z.object({
-    screenSizeInches: z.number().optional().nullable(),
+    screenSizeInches: z.union([z.number(), z.string()]).optional().nullable(),
     resolution: z.string().optional().default(''),
     panelType: z.string().optional().default(''),
     ports: z.array(z.string()).optional().default([]),
     aspectRatio: z.string().optional().default('16:9')
   }).partial().optional().default({}),
   powerConfig: z.object({
-    capacityVa: z.number().optional().nullable(),
-    capacityWatts: z.number().optional().nullable(),
+    capacityVa: z.union([z.number(), z.string()]).optional().nullable(),
+    capacityWatts: z.union([z.number(), z.string()]).optional().nullable(),
     topology: z.string().optional().default('Line-Interactive'),
     batteryType: z.string().optional().default('VRLA / SMF'),
-    batteryQuantity: z.number().optional().nullable(),
+    batteryQuantity: z.union([z.number(), z.string()]).optional().nullable(),
     estimatedBackupMinutes: z.number().optional().nullable(),
     lastBatteryReplacementDate: z.string().optional().nullable()
   }).partial().optional().default({}),
@@ -146,7 +146,7 @@ export const createAssetSchema = z.object({
   }).partial().optional().default({}),
   networkConfig: z.object({
     deviceSubtype: z.string().optional().default(''),
-    totalPorts: z.number().optional().nullable(),
+    totalPorts: z.union([z.number(), z.string()]).optional().nullable(),
     portSpeed: z.string().optional().default('1 Gbps'),
     managementIp: z.string().optional().default(''),
     ipAddress: z.string().optional().default(''),

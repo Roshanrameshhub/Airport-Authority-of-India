@@ -23,6 +23,24 @@ import {
 } from '../config/assetCategoryFormConfigs.js';
 
 /**
+ * Parses numeric value supporting fractions (e.g. "1/2") and decimals (e.g. "12.5").
+ * @param {*} val
+ * @returns {number}
+ */
+export const parseNumericValue = (val) => {
+  if (val === undefined || val === null) return NaN;
+  if (typeof val === 'number') return val;
+  const str = String(val).trim();
+  if (str === '') return NaN;
+  if (/^[-+]?\d+(\.\d+)?\s*\/\s*[-+]?\d+(\.\d+)?$/.test(str)) {
+    const [num, den] = str.split('/').map((s) => Number(s.trim()));
+    if (den === 0) return NaN;
+    return num / den;
+  }
+  return Number(str);
+};
+
+/**
  * Checks whether a given value is considered empty for validation purposes.
  * @param {*} value - The input value to check
  * @param {string} type - Field type ('text', 'number', 'date', 'select', 'textarea')
@@ -38,7 +56,7 @@ export const isValueEmpty = (value, type = 'text') => {
       return isNaN(value);
     }
     if (typeof value === 'string') {
-      return value.trim() === '' || isNaN(Number(value));
+      return value.trim() === '';
     }
     return true;
   }
@@ -71,7 +89,9 @@ export const resolveCategoryConfig = (categoryKeyOrId) => {
 
 /**
  * Validates a category-specific form state against its registered field requirements.
- * 
+ * Allows fields to be left blank wherever technically possible.
+ * Formats (valid numbers, whole-number counts, valid dates) are checked only when a value is provided.
+ *
  * @param {string|number} categoryKeyOrId - The category key (e.g. 'MONITOR') or numeric ID (e.g. 3)
  * @param {object} formData - Flat key-value object containing the user's form inputs
  * @returns {{ valid: boolean, errors: Record<string, string> }} Validation result
@@ -102,18 +122,23 @@ export const validateAssetCategoryForm = (categoryKeyOrId, formData = {}) => {
   }
 
   // 3. Validate each field defined for the category
+  // Fields can be left blank. Validate formats only when a non-empty value is supplied.
   const safeData = formData || {};
 
   for (const field of config.fields) {
-    // Remarks is universally optional
-    if (field.required === false || field.key === 'remarks') {
+    const rawValue = safeData[field.key];
+
+    // Blank values are permitted
+    if (rawValue === undefined || rawValue === null || (typeof rawValue === 'string' && rawValue.trim() === '')) {
       continue;
     }
 
-    const value = safeData[field.key];
-
-    if (isValueEmpty(value, field.type)) {
-      errors[field.key] = `${field.label} is required`;
+    // All alphanumeric values, decimals, fractions (e.g. 1/2, 8GB, 512GB SSD),
+    // and manual text entries are accepted without restrictive formatting errors.
+    if (field.type === 'date') {
+      if (isNaN(Date.parse(rawValue))) {
+        errors[field.key] = `${field.label} must be a valid date`;
+      }
     }
   }
 

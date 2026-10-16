@@ -1081,7 +1081,9 @@ export const assetRepository = {
   },
 
   create: async (data) => {
-    const assetId = data.assetId ? data.assetId.trim().toUpperCase() : await generateAssetIdAsync(data.category);
+    const assetId = data.assetId && String(data.assetId).trim()
+      ? String(data.assetId).trim().toUpperCase()
+      : await generateAssetIdAsync(data.category);
     const sn = data.serialNumber && String(data.serialNumber).trim()
       ? String(data.serialNumber).trim().toUpperCase()
       : undefined;

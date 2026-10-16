@@ -455,8 +455,8 @@ test('Phase 2D: Backend Schema & Validation Alignment Test Suite', async (t) => 
     assert.strictEqual(body.data.condition, 'GOOD', 'Omitted condition must default to GOOD');
   });
 
-  // 21. Physical Monitor without serial is still rejected
-  await t.test('21. Physical Monitor without serial is still rejected', async () => {
+  // 21. Physical Monitor without serial is accepted
+  await t.test('21. Physical Monitor without serial is accepted', async () => {
     const payload = {
       category: 'Monitor',
       assetType: 'MONITOR',
@@ -468,11 +468,11 @@ test('Phase 2D: Backend Schema & Validation Alignment Test Suite', async (t) => 
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify(payload)
     });
-    assert.strictEqual(res.status >= 400, true, 'Monitor without serial number must be rejected');
+    assert.strictEqual(res.status, 201, 'Monitor without serial number must be accepted');
   });
 
-  // 22. Physical Laptop without serial is still rejected
-  await t.test('22. Physical Laptop without serial is still rejected', async () => {
+  // 22. Physical Laptop without serial is accepted
+  await t.test('22. Physical Laptop without serial is accepted', async () => {
     const payload = {
       category: 'Laptop',
       assetType: 'LAPTOP',
@@ -484,7 +484,7 @@ test('Phase 2D: Backend Schema & Validation Alignment Test Suite', async (t) => 
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
       body: JSON.stringify(payload)
     });
-    assert.strictEqual(res.status >= 400, true, 'Laptop without serial number must be rejected');
+    assert.strictEqual(res.status, 201, 'Laptop without serial number must be accepted');
   });
 
   // 23. NETWORK profile without serial is accepted if safely exempted

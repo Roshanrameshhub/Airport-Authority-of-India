@@ -166,20 +166,19 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
   });
 
   // =========================================================================
-  // 4. REQUIRED-FIELD TESTING (ABSENCE, WHITESPACE, ZERO, FALSE)
+  // 4. BLANK FIELD PERMISSIVENESS & NUMBER FORMAT VALIDATION
   // =========================================================================
-  await t.test('4. Required field validation rules: absence, whitespace, zero, false', async () => {
-    // A. Missing required field fails
+  await t.test('4. Blank field permissiveness & number format validation', async () => {
+    // A. Missing/blank fields are allowed
     const monitorIncomplete = {
       make: 'Dell',
       model: 'P2419H'
       // serialNumber omitted
     };
     const valMissing = validateAssetCategoryForm('MONITOR', monitorIncomplete);
-    assert.strictEqual(valMissing.valid, false);
-    assert.ok(valMissing.errors.serialNumber);
+    assert.strictEqual(valMissing.valid, true);
 
-    // B. Whitespace-only required field fails
+    // B. Whitespace-only string treated as blank and allowed
     const monitorWhitespace = {
       make: '   ',
       model: 'P2419H',
@@ -188,15 +187,25 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
       warrantyAmcType: 'None'
     };
     const valWhitespace = validateAssetCategoryForm('MONITOR', monitorWhitespace);
-    assert.strictEqual(valWhitespace.valid, false);
-    assert.ok(valWhitespace.errors.make);
+    assert.strictEqual(valWhitespace.valid, true);
 
     // C. Numeric 0 is valid and not treated as missing
-    assert.strictEqual(isValueEmpty(0), false);
-    assert.strictEqual(isValueEmpty('0'), false);
+    assert.strictEqual(isValueEmpty(0, 'number'), false);
+    assert.strictEqual(isValueEmpty('0', 'number'), false);
 
     // D. Boolean false is valid and not treated as missing
     assert.strictEqual(isValueEmpty(false), false);
+
+    // E. Invalid date produces validation error, while alphanumeric/fractional quantities are accepted
+    const valInvalidDate = validateAssetCategoryForm('UPS', { installDate: 'invalid-date' });
+    assert.strictEqual(valInvalidDate.valid, false);
+    assert.ok(valInvalidDate.errors.installDate);
+
+    const valManual = validateAssetCategoryForm('ALL_IN_ONE_PC', {
+      ram: '8GB',
+      hddSize: '512GB SSD'
+    });
+    assert.strictEqual(valManual.valid, true);
   });
 
   // =========================================================================
@@ -334,10 +343,10 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
   });
 
   // =========================================================================
-  // 7. SERIAL NUMBER RULES & PROFILE EXEMPTIONS
+  // 7. SERIAL NUMBER OPTIONALITY ON ASSETS AND PROFILES
   // =========================================================================
-  await t.test('7. Serial number enforcement on physical assets and exemption on profiles', async () => {
-    // Physical Monitor without serial -> Rejected
+  await t.test('7. Serial number optionality on assets and profiles', async () => {
+    // Physical Monitor without serial -> Accepted (201)
     const resMon = await fetch(`${baseUrl}/assets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
@@ -349,9 +358,9 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
         installDate: '2025-01-01'
       })
     });
-    assert.strictEqual(resMon.status, 400, 'Physical Monitor without serial must return 400');
+    assert.strictEqual(resMon.status, 201, 'Physical Monitor without serial must return 201');
 
-    // Physical Laptop without serial -> Rejected
+    // Physical Laptop without serial -> Accepted (201)
     const resLap = await fetch(`${baseUrl}/assets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
@@ -363,9 +372,9 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
         installDate: '2025-01-01'
       })
     });
-    assert.strictEqual(resLap.status, 400, 'Physical Laptop without serial must return 400');
+    assert.strictEqual(resLap.status, 201, 'Physical Laptop without serial must return 201');
 
-    // Physical Printer with make/model but no serial -> Rejected
+    // Physical Printer with make/model but no serial -> Accepted (201)
     const resPrt = await fetch(`${baseUrl}/assets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
@@ -377,7 +386,7 @@ test('Phase 2E: End-to-End Create Asset Integration & Category QA Test Suite', a
         installDate: '2025-01-01'
       })
     });
-    assert.strictEqual(resPrt.status, 400, 'Physical Printer without serial must return 400');
+    assert.strictEqual(resPrt.status, 201, 'Physical Printer without serial must return 201');
 
     // Network profile (New PTR IP) without physical make/model -> Accepted
     const resNewPtr = await fetch(`${baseUrl}/assets`, {

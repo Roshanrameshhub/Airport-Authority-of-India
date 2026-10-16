@@ -376,11 +376,11 @@ export default function DynamicCreateAssetModal({
       );
     }
 
-    // G. Number Input
+    // G. Number / Quantitative Input (Text-based to allow manual typing without spinner buttons)
     if (field.type === 'number') {
       return (
         <input
-          type="number"
+          type="text"
           className={`form-input ${hasError ? 'input-error' : ''}`}
           placeholder={`Enter ${field.label.toLowerCase()}`}
           value={value}
@@ -479,7 +479,7 @@ export default function DynamicCreateAssetModal({
             className="form-label"
             style={{ fontWeight: 700, color: 'var(--color-brand-900, #00205B)', marginBottom: '6px' }}
           >
-            Select Equipment Category / Type <span style={{ color: 'var(--status-danger-text, #dc2626)' }}>*</span>
+            Select Equipment Category / Type
           </label>
           <select
             id="dynamic-category-select"
@@ -495,7 +495,7 @@ export default function DynamicCreateAssetModal({
             ))}
           </select>
           <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted, #64748b)', marginTop: '4px' }}>
-            Broad Category: <strong>{currentConfig?.category}</strong> • System Asset Type: <strong>{currentConfig?.assetType}</strong> • Fields required: <strong>{currentConfig?.fields.filter(f => f.required).length}</strong>
+            Broad Category: <strong>{currentConfig?.category}</strong> • System Asset Type: <strong>{currentConfig?.assetType}</strong> • Total fields: <strong>{currentConfig?.fields.length}</strong>
           </div>
         </div>
       </div>
@@ -610,9 +610,6 @@ export default function DynamicCreateAssetModal({
                 >
                   <span>
                     {field.label}
-                    {field.required && (
-                      <span style={{ color: 'var(--status-danger-text, #dc2626)', marginLeft: '3px' }} title="Required field">*</span>
-                    )}
                   </span>
                   {field.isAlias && (
                     <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted, #94a3b8)', fontWeight: 400 }}>
