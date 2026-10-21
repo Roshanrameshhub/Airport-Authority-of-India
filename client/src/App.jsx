@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -9,7 +9,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import EmployeeDirectory from './pages/EmployeeDirectory';
-import AssetInventory from './pages/AssetInventory';
 import AssetTransfers from './pages/AssetTransfers';
 import BulkImportExport from './pages/BulkImportExport';
 import ComplaintDesk from './pages/ComplaintDesk';
@@ -19,6 +18,11 @@ import EnterpriseInventory from './pages/EnterpriseInventory';
 function RootDashboard() {
   const { user } = useAuth();
   return user?.role === 'ADMIN' ? <Dashboard /> : <EmployeeDashboard />;
+}
+
+function AssetsRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/inventory${location.search}`} replace />;
 }
 
 function AppLayout({ children }) {
@@ -64,13 +68,12 @@ export default function App() {
             }
           />
 
+          {/* Legacy /assets compatibility redirect preserving query parameters */}
           <Route
             path="/assets"
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
-                <AppLayout>
-                  <AssetInventory />
-                </AppLayout>
+                <AssetsRedirect />
               </ProtectedRoute>
             }
           />

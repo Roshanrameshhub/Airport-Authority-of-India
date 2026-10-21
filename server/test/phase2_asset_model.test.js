@@ -216,4 +216,196 @@ test('Phase 2 Rich Common Asset Model Test Suite', async (t) => {
     assert.strictEqual(unassignedRes.status, 200);
     assert.strictEqual(unassignedBody.data.assignedTo, null, 'assignedTo must be null for unassigned asset');
   });
+
+  // 7. Phase 2: Make & Model Plain Strings & Optional Technology Verification
+  await t.test('Asset make and model remain plain strings; technology is optional and backward compatible', async () => {
+    // Verify existing asset
+    const res = await fetch(`${baseUrl}/assets/AAI-REG-PC-2024-0001`, {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.strictEqual(typeof body.data.make, 'string', 'Asset.make must be a string');
+    assert.strictEqual(typeof body.data.model, 'string', 'Asset.model must be a string');
+    assert.strictEqual(body.data.make, 'Dell');
+    assert.strictEqual(body.data.model, 'OptiPlex 7090 MT');
+
+    // Create asset WITH technology string
+    const createWithTechRes = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        assetName: 'LG 27-inch Commercial Display',
+        category: 'IT Equipment',
+        assetType: 'MONITOR',
+        make: 'LG',
+        model: '27MP400',
+        technology: 'IPS',
+        serialNumber: 'LG-IPS-27-001',
+        installDate: '2026-02-01',
+        warrantyEndDate: '2029-02-01',
+        department: 'Airport Systems & Information Technology',
+        floor: '1st Floor, Technical Block',
+        status: 'AVAILABLE',
+        condition: 'NEW'
+      })
+    });
+    assert.strictEqual(createWithTechRes.status, 201);
+    const techBody = await createWithTechRes.json();
+    assert.strictEqual(techBody.data.technology, 'IPS');
+    assert.strictEqual(typeof techBody.data.make, 'string');
+    assert.strictEqual(typeof techBody.data.model, 'string');
+  });
+
+  // 8. Phase 2: Non-ObjectId Freeform Strings in make and model
+  await t.test('Make and Model accept arbitrary valid non-ObjectId strings', async () => {
+    const res = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        assetName: 'Custom Fabricated Rack PDU',
+        category: 'Power',
+        assetType: 'PDU',
+        make: 'Custom Regional Fab Inc',
+        model: 'PDU-16A-12WAY',
+        serialNumber: 'CRF-PDU-16A-991',
+        installDate: '2026-01-01',
+        warrantyEndDate: '2028-01-01',
+        department: 'Communication, Navigation & Surveillance',
+        floor: 'Radar Technical Vault',
+        status: 'AVAILABLE',
+        condition: 'NEW'
+      })
+    });
+    assert.strictEqual(res.status, 201);
+    const body = await res.json();
+    assert.strictEqual(body.data.make, 'Custom Regional Fab Inc');
+    assert.strictEqual(body.data.model, 'PDU-16A-12WAY');
+  });
+
+  // 9. Phase 2: Serial Number Exemptions for PERIPHERAL and OTHER
+  await t.test('Serial number is exempt for PERIPHERAL and OTHER asset types', async () => {
+    const res = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        assetName: 'Standard USB Optical Mouse',
+        category: 'Office Equipment',
+        assetType: 'PERIPHERAL',
+        make: 'Logitech',
+        model: 'B100',
+        installDate: '2026-01-01',
+        warrantyEndDate: '2027-01-01',
+        department: 'Air Traffic Management',
+        floor: 'ATC Tower, Top Cab',
+        status: 'AVAILABLE',
+        condition: 'NEW'
+      })
+    });
+    assert.strictEqual(res.status, 201, 'Peripheral without serial number must succeed');
+    const body = await res.json();
+    assert.strictEqual(body.data.assetType, 'PERIPHERAL');
+    assert.strictEqual(body.data.serialNumber, undefined);
+  });
+
+  // 10. Phase 2: Missing Required Fields Rejection (Category is universally required)
+  await t.test('Missing required category or invalid status returns 400 Bad Request', async () => {
+    // Missing category
+    const noCatRes = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        assetName: 'Incomplete Asset',
+        model: 'Model Only',
+        installDate: '2026-01-01',
+        warrantyEndDate: '2028-01-01',
+        department: 'IT',
+        floor: '1st Floor'
+      })
+    });
+    assert.strictEqual(noCatRes.status, 400, 'Asset without category must return 400');
+
+    // Invalid status
+    const invalidStatusRes = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        category: 'Desktop PC',
+        status: 'NON_EXISTENT_STATUS'
+      })
+    });
+    assert.strictEqual(invalidStatusRes.status, 400, 'Asset with invalid status must return 400');
+  });
+
+  // 11. Phase 2: Root-Level Backward Compatibility Virtual Getters
+  await t.test('Root-level compatibility getters (operatingSystem, osVersion, ipAddress) are accessible', async () => {
+    const res = await fetch(`${baseUrl}/assets/AAI-REG-PC-2024-0001`, {
+      headers: { Authorization: `Bearer ${adminToken}` }
+    });
+    assert.strictEqual(res.status, 200);
+    const body = await res.json();
+    assert.ok('operatingSystem' in body.data, 'operatingSystem must be exposed at root');
+    assert.ok('osVersion' in body.data, 'osVersion must be exposed at root');
+    assert.strictEqual(body.data.operatingSystem, 'Windows 11 Enterprise');
+  });
+
+  // 12. Phase 2: Technical Subdocuments & Specifications Extensibility
+  await t.test('Technical subdocuments and custom specifications are persisted and returned', async () => {
+    const res = await fetch(`${baseUrl}/assets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        assetName: 'Cisco Catalyst 3850 PoE Switch',
+        category: 'Networking',
+        assetType: 'SWITCH',
+        make: 'Cisco',
+        model: 'WS-C3850-48P-L',
+        serialNumber: 'FCW2145L099',
+        installDate: '2026-01-01',
+        warrantyEndDate: '2029-01-01',
+        department: 'Airport Systems & Information Technology',
+        floor: 'Server Room Alpha',
+        networkConfig: {
+          deviceSubtype: 'Switch',
+          totalPorts: 48,
+          portSpeed: '1 Gbps',
+          managementIp: '10.20.0.15',
+          isManaged: true
+        },
+        specifications: {
+          poeBudgetWatts: 715,
+          stackingBandwidthGbps: 480
+        },
+        customFields: {
+          assetOwnerTag: 'CNS-LAN-CORE-01'
+        },
+        status: 'AVAILABLE',
+        condition: 'NEW'
+      })
+    });
+    assert.strictEqual(res.status, 201);
+    const body = await res.json();
+    assert.strictEqual(body.data.networkConfig.totalPorts, 48);
+    assert.strictEqual(body.data.networkConfig.managementIp, '10.20.0.15');
+    assert.strictEqual(body.data.specifications.poeBudgetWatts, 715);
+    assert.strictEqual(body.data.customFields.assetOwnerTag, 'CNS-LAN-CORE-01');
+  });
 });

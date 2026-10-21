@@ -6,6 +6,7 @@ import { relationshipRepository } from './relationshipRepository.js';
 import { generateAssignmentId, generateAssignmentIdAsync } from '../utils/idGenerator.js';
 import { escapeRegex } from '../utils/regexHelper.js';
 import { logger } from '../utils/logger.js';
+import { auditRepository } from './auditRepository.js';
 
 const memoryAssignments = new Map();
 
@@ -172,25 +173,44 @@ const withTransaction = async (operation) => {
   }
 };
 
+export const ASSIGNMENT_SORT_ALLOWLIST = [
+  'assignedDate',
+  'returnedDate',
+  'assetId',
+  'employeeId',
+  'status',
+  'department',
+  'createdAt'
+];
+
 export const assignmentRepository = {
   findPaginated: async (options = {}) => {
     seedAssignments();
     const {
       page = 1,
-      limit = 10,
+      limit = 25,
       status,
       assetId,
       employeeId,
-      search
+      department,
+      search,
+      sortBy = 'assignedDate',
+      sortOrder = 'desc'
     } = options;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Number(limit) || 25), 100);
+    const skip = (safePage - 1) * safeLimit;
+
+    const effectiveSortBy = ASSIGNMENT_SORT_ALLOWLIST.includes(sortBy) ? sortBy : 'assignedDate';
+    const direction = String(sortOrder).toLowerCase() === 'asc' ? 1 : -1;
 
     if (mongoose.connection.readyState === 1) {
       const query = {};
       if (status) query.status = status;
       if (assetId) query.assetId = assetId.trim().toUpperCase();
       if (employeeId) query.employeeId = employeeId.trim().toUpperCase();
+      if (department) query.department = department.trim();
       if (search) {
         const regex = new RegExp(escapeRegex(search), 'i');
         query.$or = [
@@ -205,9 +225,9 @@ export const assignmentRepository = {
 
       const total = await AssetAssignment.countDocuments(query);
       const items = await AssetAssignment.find(query)
-        .sort({ assignedDate: -1 })
+        .sort({ [effectiveSortBy]: direction, _id: 1 })
         .skip(skip)
-        .limit(Number(limit));
+        .limit(safeLimit);
 
       return { items, total };
     }
@@ -218,24 +238,74 @@ export const assignmentRepository = {
     if (status) list = list.filter(a => a.status === status);
     if (assetId) list = list.filter(a => a.assetId.toUpperCase() === assetId.trim().toUpperCase());
     if (employeeId) list = list.filter(a => a.employeeId.toUpperCase() === employeeId.trim().toUpperCase());
+    if (department) list = list.filter(a => a.department && a.department.toLowerCase() === department.trim().toLowerCase());
 
     if (search) {
       const s = search.toLowerCase();
       list = list.filter(a =>
-        a.assignmentId.toLowerCase().includes(s) ||
-        a.assetId.toLowerCase().includes(s) ||
+        (a.assignmentId && a.assignmentId.toLowerCase().includes(s)) ||
+        (a.assetId && a.assetId.toLowerCase().includes(s)) ||
         (a.assetName && a.assetName.toLowerCase().includes(s)) ||
-        a.employeeName.toLowerCase().includes(s) ||
-        a.employeeId.toLowerCase().includes(s) ||
-        a.department.toLowerCase().includes(s)
+        (a.employeeName && a.employeeName.toLowerCase().includes(s)) ||
+        (a.employeeId && a.employeeId.toLowerCase().includes(s)) ||
+        (a.department && a.department.toLowerCase().includes(s))
       );
     }
 
-    list.sort((a, b) => new Date(b.assignedDate) - new Date(a.assignedDate));
+    list.sort((a, b) => {
+      let valA = a[effectiveSortBy];
+      let valB = b[effectiveSortBy];
+      if (valA instanceof Date) valA = valA.getTime();
+      if (valB instanceof Date) valB = valB.getTime();
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+      if (valA == null && valB != null) return 1;
+      if (valA != null && valB == null) return -1;
+      if (valA < valB) return -1 * direction;
+      if (valA > valB) return 1 * direction;
+      return String(a._id || a.assignmentId).localeCompare(String(b._id || b.assignmentId));
+    });
+
     const total = list.length;
-    const items = list.slice(skip, skip + Number(limit));
+    const items = list.slice(skip, skip + safeLimit);
 
     return { items, total };
+  },
+
+  getAssignmentStats: async () => {
+    seedAssignments();
+    if (mongoose.connection.readyState === 1) {
+      const stats = await AssetAssignment.aggregate([
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+      const result = {
+        total: 0,
+        active: 0,
+        transferred: 0,
+        returned: 0
+      };
+      stats.forEach(s => {
+        result.total += s.count;
+        if (s._id === 'ACTIVE') result.active = s.count;
+        else if (s._id === 'TRANSFERRED') result.transferred = s.count;
+        else if (s._id === 'RETURNED') result.returned = s.count;
+      });
+      return result;
+    }
+
+    // In-memory fallback
+    const list = Array.from(memoryAssignments.values());
+    return {
+      total: list.length,
+      active: list.filter(a => a.status === 'ACTIVE').length,
+      transferred: list.filter(a => a.status === 'TRANSFERRED').length,
+      returned: list.filter(a => a.status === 'RETURNED').length
+    };
   },
 
   findById: async (id) => {
@@ -317,6 +387,7 @@ export const assignmentRepository = {
     remarks = '',
     assignedBy = 'admin',
     cascadeComponents = false,
+    isRecursiveCascade = false,
     session = null
   }) => {
     // 1. Fetch asset
@@ -418,25 +489,58 @@ export const assignmentRepository = {
       floor: employee.floor
     }, { session });
 
-    // 6. Optional cascading assignment for linked components
-    if (cascadeComponents) {
+    // 6. Symmetrical Cascading Assignment for linked components and peripherals
+    if (!isRecursiveCascade) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
-        if (comp.relationshipType !== 'COMPONENT_OF') continue;
-        if (comp.asset && comp.asset.status === 'AVAILABLE') {
-          try {
-            await assignmentRepository.assignAssetInternal({
-              assetId: comp.asset.assetId,
-              employeeId: employee.employeeId,
-              assignedBy,
-              remarks: `Cascaded assignment from parent workstation ${asset.assetId}`,
-              cascadeComponents: false,
-              session
-            });
-          } catch (e) {
-            // Component could already be assigned
-          }
+        // PERIPHERAL_OF cascades as part of the peripheral custody lifecycle.
+        // COMPONENT_OF cascades when cascadeComponents is true.
+        const isEligible = comp.relationshipType === 'PERIPHERAL_OF' || (comp.relationshipType === 'COMPONENT_OF' && cascadeComponents);
+        if (!isEligible) continue;
+
+        if (!comp.asset) {
+          const err = new Error(`Linked child asset '${comp.relationshipId || comp.assetId}' not found`);
+          err.statusCode = 404;
+          throw err;
         }
+
+        if (comp.asset.status !== 'AVAILABLE') {
+          const err = new Error(
+            `Cannot assign parent asset '${asset.assetId}' because linked child asset '${comp.asset.assetId}' (${comp.relationshipType}) has status '${comp.asset.status}'`
+          );
+          err.statusCode = 400;
+          throw err;
+        }
+
+        const childAssignment = await assignmentRepository.assignAssetInternal({
+          assetId: comp.asset.assetId,
+          employeeId: employee.employeeId,
+          assignedBy,
+          remarks: `Cascaded assignment from parent asset ${asset.assetId}`,
+          cascadeComponents: false,
+          isRecursiveCascade: true,
+          session
+        });
+
+        // Audit child cascading assignment
+        await auditRepository.logEvent({
+          action: 'CUSTODY_ASSIGNED',
+          entityType: 'ASSIGNMENT',
+          entityId: comp.asset.assetId,
+          actor: {
+            username: assignedBy || 'admin',
+            role: 'ADMIN'
+          },
+          details: {
+            assetId: comp.asset.assetId,
+            parentAssetId: asset.assetId,
+            relationshipType: comp.relationshipType,
+            employeeId: employee.employeeId,
+            assignmentId: childAssignment?.assignmentId,
+            source: 'CASCADED_ASSIGNMENT'
+          },
+          status: 'SUCCESS'
+        });
       }
     }
 
@@ -464,6 +568,7 @@ export const assignmentRepository = {
     remarks = '',
     processedBy = 'admin',
     cascadeComponents = true,
+    isRecursiveCascade = false,
     session = null
   }) => {
     // 1. Fetch asset
@@ -589,27 +694,59 @@ export const assignmentRepository = {
       floor: targetEmployee.floor
     }, { session });
 
-    // 7. Symmetrical Cascading Transfer for attached components
-    if (cascadeComponents) {
+    // 7. Symmetrical Cascading Transfer for attached components and peripherals
+    if (cascadeComponents && !isRecursiveCascade) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
-        if (comp.relationshipType !== 'COMPONENT_OF') continue;
-        if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
-          try {
-            await assignmentRepository.transferAssetInternal({
-              assetId: comp.asset.assetId,
-              toEmployeeId,
-              transferReason: `Cascaded transfer with parent workstation ${asset.assetId}`,
-              conditionAtReturn,
-              conditionAtNewAssignment,
-              processedBy,
-              cascadeComponents: false,
-              session
-            });
-          } catch (e) {
-            // Attached component transfer notice
-          }
+        const isEligible = comp.relationshipType === 'COMPONENT_OF' || comp.relationshipType === 'PERIPHERAL_OF';
+        if (!isEligible) continue;
+
+        if (!comp.asset) {
+          const err = new Error(`Linked child asset '${comp.relationshipId || comp.assetId}' not found`);
+          err.statusCode = 404;
+          throw err;
         }
+
+        if (comp.asset.status !== 'ASSIGNED' || comp.asset.currentEmployeeId !== previousCustodianId) {
+          const err = new Error(
+            `Cannot transfer parent asset '${asset.assetId}' because linked child asset '${comp.asset.assetId}' (${comp.relationshipType}) is not assigned to current custodian '${previousCustodianId}' (status: ${comp.asset.status}, custodian: ${comp.asset.currentEmployeeId})`
+          );
+          err.statusCode = 400;
+          throw err;
+        }
+
+        const childTransferResult = await assignmentRepository.transferAssetInternal({
+          assetId: comp.asset.assetId,
+          toEmployeeId,
+          transferReason: `Cascaded transfer with parent asset ${asset.assetId}`,
+          conditionAtReturn,
+          conditionAtNewAssignment,
+          processedBy,
+          cascadeComponents: false,
+          isRecursiveCascade: true,
+          session
+        });
+
+        // Audit child cascading transfer
+        await auditRepository.logEvent({
+          action: 'CUSTODY_TRANSFERRED',
+          entityType: 'ASSIGNMENT',
+          entityId: comp.asset.assetId,
+          actor: {
+            username: processedBy || 'admin',
+            role: 'ADMIN'
+          },
+          details: {
+            assetId: comp.asset.assetId,
+            parentAssetId: asset.assetId,
+            relationshipType: comp.relationshipType,
+            fromEmployeeId: previousCustodianId,
+            toEmployeeId,
+            newAssignmentId: childTransferResult?.newAssignment?.assignmentId,
+            source: 'CASCADED_TRANSFER'
+          },
+          status: 'SUCCESS'
+        });
       }
     }
 
@@ -638,6 +775,7 @@ export const assignmentRepository = {
     remarks = '',
     processedBy = 'admin',
     cascadeComponents = true,
+    isRecursiveCascade = false,
     session = null
   }) => {
     // 1. Fetch asset
@@ -696,25 +834,56 @@ export const assignmentRepository = {
       remarks: `${asset.remarks || ''} [Returned on ${now.toISOString().split('T')[0]}: ${returnReason}]`.trim()
     }, { session });
 
-    // 4. Symmetrical Cascading Return for attached components
-    if (cascadeComponents) {
+    // 4. Symmetrical Cascading Return for attached components and peripherals
+    if (cascadeComponents && !isRecursiveCascade) {
       const components = await relationshipRepository.findComponents(asset.assetId);
       for (const comp of components) {
-        if (comp.relationshipType !== 'COMPONENT_OF') continue;
-        if (comp.asset && comp.asset.currentEmployeeId === previousCustodianId) {
-          try {
-            await assignmentRepository.returnAssetInternal({
-              assetId: comp.asset.assetId,
-              returnReason: `Cascaded return with parent workstation ${asset.assetId}`,
-              conditionAtReturn,
-              processedBy,
-              cascadeComponents: false,
-              session
-            });
-          } catch (e) {
-            // Attached component return notice
-          }
+        const isEligible = comp.relationshipType === 'COMPONENT_OF' || comp.relationshipType === 'PERIPHERAL_OF';
+        if (!isEligible) continue;
+
+        if (!comp.asset) {
+          const err = new Error(`Linked child asset '${comp.relationshipId || comp.assetId}' not found`);
+          err.statusCode = 404;
+          throw err;
         }
+
+        if (comp.asset.status !== 'ASSIGNED' || comp.asset.currentEmployeeId !== previousCustodianId) {
+          const err = new Error(
+            `Cannot return parent asset '${asset.assetId}' because linked child asset '${comp.asset.assetId}' (${comp.relationshipType}) is not assigned to current custodian '${previousCustodianId}' (status: ${comp.asset.status}, custodian: ${comp.asset.currentEmployeeId})`
+          );
+          err.statusCode = 400;
+          throw err;
+        }
+
+        await assignmentRepository.returnAssetInternal({
+          assetId: comp.asset.assetId,
+          returnReason: `Cascaded return with parent asset ${asset.assetId}`,
+          conditionAtReturn,
+          processedBy,
+          cascadeComponents: false,
+          isRecursiveCascade: true,
+          session
+        });
+
+        // Audit child cascading return
+        await auditRepository.logEvent({
+          action: 'CUSTODY_RETURNED',
+          entityType: 'ASSIGNMENT',
+          entityId: comp.asset.assetId,
+          actor: {
+            username: processedBy || 'admin',
+            role: 'ADMIN'
+          },
+          details: {
+            assetId: comp.asset.assetId,
+            parentAssetId: asset.assetId,
+            relationshipType: comp.relationshipType,
+            previousEmployeeId: previousCustodianId,
+            returnReason: `Cascaded return with parent asset ${asset.assetId}`,
+            source: 'CASCADED_RETURN'
+          },
+          status: 'SUCCESS'
+        });
       }
     }
 

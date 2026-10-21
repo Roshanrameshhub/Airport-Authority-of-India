@@ -2255,7 +2255,7 @@ export default function BulkImportExport() {
             >
               Import More Files
             </button>
-            <Link to="/assets" className="btn btn-primary" id="btn-view-inventory">
+            <Link to="/inventory" className="btn btn-primary" id="btn-view-inventory">
               <Boxes size={15} />
               <span>View Assets in Inventory</span>
             </Link>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect, useId, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   ArrowRightLeft, 
@@ -10,7 +10,13 @@ import {
   CheckCircle2, 
   AlertCircle, 
   X,
-  Eye
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Layers
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatCard from '../components/ui/StatCard';
@@ -18,28 +24,52 @@ import { SearchInput, SelectInput, ClearFilterButton } from '../components/ui/Fo
 import { DataTable } from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
-import LoadMoreButton from '../components/ui/LoadMoreButton';
-import { downloadAuthenticatedPdf } from '../services/api';
+import SearchableSelect from '../components/ui/SearchableSelect';
+import { 
+  api, 
+  assignmentApi, 
+  employeeApi, 
+  assetApi, 
+  downloadAuthenticatedPdf 
+} from '../services/api';
+
+const SORTABLE_COLUMNS = [
+  { key: 'assignmentId', label: 'Assignment ID', backendField: 'createdAt' },
+  { key: 'assetId', label: 'Asset', backendField: 'assetId' },
+  { key: 'employeeId', label: 'Custodian', backendField: 'employeeId' },
+  { key: 'department', label: 'Department / Floor', backendField: 'department' },
+  { key: 'assignedDate', label: 'Assigned / Returned', backendField: 'assignedDate' },
+  { key: 'status', label: 'Status', backendField: 'status' }
+];
 
 export default function AssetTransfers() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const searchInputId = useId();
 
-  // Core Data States
+  // Core Data States (Server-driven dataset; zero client accumulator)
   const [assignments, setAssignments] = useState([]);
-  const [assets, setAssets] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  // Pagination & Load More States
+  // Authoritative Database Statistics (Loaded via assignmentApi.getStats())
+  const [stats, setStats] = useState({ total: 0, active: 0, transferred: 0, returned: 0 });
+
+  // Server-Side Pagination States
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreError, setLoadMoreError] = useState(null);
 
-  // Modals Management
+  // Server-Side Search, Filters & Sorting
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [sortBy, setSortBy] = useState('assignedDate');
+  const [sortOrder, setSortOrder] = useState('desc');
+
+  // Modals & Drawers Management
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -47,139 +77,448 @@ export default function AssetTransfers() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
 
-  // Active Asset Timeline Selection
+  // Active Asset Custody Timeline Drawer
   const [timelineAsset, setTimelineAsset] = useState(null);
   const [assetHistory, setAssetHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Filters and Search
-  const [search, setSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  // Component Cascade & Attached Peripherals State
+  const [attachedComponents, setAttachedComponents] = useState([]);
+  const [_componentsLoading, setComponentsLoading] = useState(false);
+  const [currentCustodian, setCurrentCustodian] = useState(null);
+  const [returnAssetCustodian, setReturnAssetCustodian] = useState(null);
 
   // Form State: Assign Asset
   const [assignForm, setAssignForm] = useState({
     assetId: '',
+    selectedAsset: null,
     employeeId: '',
+    selectedEmployee: null,
     condition: 'GOOD',
     transferReason: 'Initial Staff Assignment',
-    remarks: ''
+    remarks: '',
+    cascadeComponents: true
   });
 
   // Form State: Transfer Asset
   const [transferForm, setTransferForm] = useState({
     assetId: '',
+    selectedAsset: null,
     toEmployeeId: '',
+    selectedTargetEmployee: null,
     conditionAtReturn: 'GOOD',
     conditionAtNewAssignment: 'GOOD',
     transferReason: '',
-    remarks: ''
+    remarks: '',
+    cascadeComponents: true
   });
 
   // Form State: Return Asset to IT Pool
   const [returnForm, setReturnForm] = useState({
     assetId: '',
+    selectedAsset: null,
     conditionAtReturn: 'GOOD',
     returnReason: 'Return to IT Reserve Store',
-    remarks: ''
+    remarks: '',
+    cascadeComponents: true
   });
 
-  // Fetch master data (assets, employees)
-  const fetchMasterData = async () => {
+  // =========================================================================
+  // 1. Authoritative Stats & Server-Side Pagination Loaders
+  // =========================================================================
+
+  const fetchStats = useCallback(async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const [assetRes, empRes] = await Promise.all([
-        fetch('/api/v1/assets?limit=200', { headers }),
-        fetch('/api/v1/employees?limit=200', { headers })
-      ]);
-      const [assetData, empData] = await Promise.all([assetRes.json(), empRes.json()]);
-      if (assetData.success) setAssets(assetData.data || []);
-      if (empData.success) setEmployees(empData.data || []);
+      const res = await assignmentApi.getStats();
+      if (res.success && res.data) {
+        setStats(res.data);
+      }
     } catch (err) {
-      console.error('Failed to load master asset/employee lists', err);
+      console.error('[AssetTransfers] Failed to fetch stats:', err);
     }
-  };
+  }, []);
 
-  // Fetch paginated assignments
-  const fetchAssignments = async (pageNum = 1, isLoadMore = false) => {
-    if (isLoadMore) {
-      setLoadingMore(true);
-      setLoadMoreError(null);
-    } else {
-      setLoading(true);
-      setLoadMoreError(null);
-    }
+  const fetchAssignments = useCallback(async (targetPage = page) => {
+    setLoading(true);
+    setError(null);
     try {
-      const params = new URLSearchParams();
-      params.append('page', String(pageNum));
-      params.append('limit', '20');
-      if (search) params.append('search', search);
-      if (selectedStatus) params.append('status', selectedStatus);
-
-      const res = await fetch(`/api/v1/assignments?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await assignmentApi.getAll({
+        page: targetPage,
+        limit: pageSize,
+        search: debouncedSearch,
+        status: selectedStatus,
+        department: selectedDepartment,
+        sortBy,
+        sortOrder
       });
-      const data = await res.json();
-      if (data.success) {
-        const items = Array.isArray(data.data) ? data.data : (data.data?.items || []);
-        if (isLoadMore) {
-          setAssignments(prev => [...prev, ...items]);
-        } else {
-          setAssignments(items);
-        }
-        setTotalCount(data.pagination?.total ?? (isLoadMore ? assignments.length + items.length : items.length));
-        setPage(pageNum);
+
+      if (res.success) {
+        const items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+        // Strictly replace displayed page dataset (NO accumulator)
+        setAssignments(items);
+        const total = res.pagination?.total ?? res.data?.total ?? items.length;
+        setTotalCount(total);
       }
     } catch (err) {
-      console.error('Failed to load transfer records', err);
-      if (isLoadMore) {
-        setLoadMoreError(err.message || 'Failed to load more transfer records');
-      } else {
-        setError(err.message || 'Failed to load transfer records');
-      }
+      console.error('[AssetTransfers] Failed to load assignments:', err);
+      setError(err.message || 'Failed to load transfer records');
+      setAssignments([]);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
+    }
+  }, [page, pageSize, debouncedSearch, selectedStatus, selectedDepartment, sortBy, sortOrder]);
+
+  // Debounce search input (~300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch ledger when pagination, filter, or sort criteria change
+  useEffect(() => {
+    fetchAssignments(page);
+  }, [fetchAssignments, page]);
+
+  // Initial stats fetch
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // =========================================================================
+  // 2. Sorting & Filtering Handlers
+  // =========================================================================
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+    setPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setDebouncedSearch('');
+    setSelectedStatus('');
+    setSelectedDepartment('');
+    setSortBy('assignedDate');
+    setSortOrder('desc');
+    setPage(1);
+  };
+
+  // =========================================================================
+  // 3. Bounded Searchable Pickers for Modals (limit=10)
+  // =========================================================================
+
+  const loadAvailableAssets = useCallback(async (term) => {
+    try {
+      const res = await assetApi.getAll({
+        search: term,
+        status: 'AVAILABLE',
+        limit: 10
+      });
+      return res.data?.items || res.data || [];
+    } catch (err) {
+      console.error('[AssetTransfers] Failed to search available assets:', err);
+      return [];
+    }
+  }, []);
+
+  const loadAssignedAssets = useCallback(async (term) => {
+    try {
+      const res = await assetApi.getAll({
+        search: term,
+        status: 'ASSIGNED',
+        limit: 10
+      });
+      return res.data?.items || res.data || [];
+    } catch (err) {
+      console.error('[AssetTransfers] Failed to search assigned assets:', err);
+      return [];
+    }
+  }, []);
+
+  const loadEmployees = useCallback(async (term) => {
+    try {
+      const res = await employeeApi.getAll({
+        search: term,
+        limit: 10
+      });
+      return res.data?.items || res.data || [];
+    } catch (err) {
+      console.error('[AssetTransfers] Failed to search employees:', err);
+      return [];
+    }
+  }, []);
+
+  // Fetch attached components/peripherals for cascade UI
+  const fetchAssetComponents = useCallback(async (assetId) => {
+    if (!assetId) {
+      setAttachedComponents([]);
+      return;
+    }
+    setComponentsLoading(true);
+    try {
+      const res = await api.get(`/relationships/components/${assetId}`);
+      if (res.success && Array.isArray(res.data)) {
+        setAttachedComponents(res.data);
+      } else {
+        setAttachedComponents([]);
+      }
+    } catch (err) {
+      console.error('[AssetTransfers] Failed to fetch attached components:', err);
+      setAttachedComponents([]);
+    } finally {
+      setComponentsLoading(false);
+    }
+  }, []);
+
+  // Handle transfer asset selection & auto-detect current custodian
+  const handleSelectTransferAsset = async (assetOpt) => {
+    if (!assetOpt) {
+      setTransferForm(prev => ({ ...prev, assetId: '', selectedAsset: null }));
+      setCurrentCustodian(null);
+      setAttachedComponents([]);
+      return;
+    }
+
+    const assetId = assetOpt.assetId || assetOpt.value;
+    setTransferForm(prev => ({ ...prev, assetId, selectedAsset: assetOpt }));
+
+    if (assetOpt.currentEmployeeId || assetOpt.currentEmployeeName) {
+      setCurrentCustodian({
+        employeeId: assetOpt.currentEmployeeId,
+        name: assetOpt.currentEmployeeName,
+        designation: assetOpt.currentDesignation,
+        employeeType: assetOpt.currentEmployeeType,
+        department: assetOpt.department,
+        floor: assetOpt.floor,
+        contractorName: assetOpt.currentContractorName
+      });
+    } else {
+      try {
+        const histRes = await assignmentApi.getAssetHistory(assetId);
+        if (histRes.success && Array.isArray(histRes.data)) {
+          const activeEntry = histRes.data.find(h => h.status === 'ACTIVE') || histRes.data[0];
+          if (activeEntry) {
+            setCurrentCustodian({
+              employeeId: activeEntry.employeeId,
+              name: activeEntry.employeeName,
+              designation: activeEntry.designation,
+              employeeType: activeEntry.employeeType,
+              department: activeEntry.department,
+              floor: activeEntry.floor,
+              contractorName: activeEntry.contractorName
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[AssetTransfers] Failed to resolve custodian info:', err);
+      }
+    }
+
+    fetchAssetComponents(assetId);
+  };
+
+  // Handle return asset selection
+  const handleSelectReturnAsset = async (assetOpt) => {
+    if (!assetOpt) {
+      setReturnForm(prev => ({ ...prev, assetId: '', selectedAsset: null }));
+      setReturnAssetCustodian(null);
+      setAttachedComponents([]);
+      return;
+    }
+
+    const assetId = assetOpt.assetId || assetOpt.value;
+    setReturnForm(prev => ({ ...prev, assetId, selectedAsset: assetOpt }));
+
+    if (assetOpt.currentEmployeeId || assetOpt.currentEmployeeName) {
+      setReturnAssetCustodian({
+        employeeId: assetOpt.currentEmployeeId,
+        name: assetOpt.currentEmployeeName,
+        designation: assetOpt.currentDesignation,
+        employeeType: assetOpt.currentEmployeeType,
+        department: assetOpt.department,
+        floor: assetOpt.floor,
+        contractorName: assetOpt.currentContractorName
+      });
+    }
+
+    fetchAssetComponents(assetId);
+  };
+
+  // =========================================================================
+  // 4. Modal Submit Handlers (Assign / Transfer / Return with cascadeComponents)
+  // =========================================================================
+
+  const handleAssignSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setError(null);
+
+    if (!assignForm.assetId) {
+      setError('Please select an available equipment to assign.');
+      return;
+    }
+    if (!assignForm.employeeId) {
+      setError('Please select an assignee staff member.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await assignmentApi.assign({
+        assetId: assignForm.assetId,
+        employeeId: assignForm.employeeId,
+        condition: assignForm.condition,
+        transferReason: assignForm.transferReason,
+        remarks: assignForm.remarks,
+        cascadeComponents: Boolean(assignForm.cascadeComponents)
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || 'Assignment failed');
+      }
+
+      setSuccessMessage(`Asset '${assignForm.assetId}' successfully assigned!`);
+      setIsAssignModalOpen(false);
+      setAssignForm({
+        assetId: '',
+        selectedAsset: null,
+        employeeId: '',
+        selectedEmployee: null,
+        condition: 'GOOD',
+        transferReason: 'Initial Staff Assignment',
+        remarks: '',
+        cascadeComponents: true
+      });
+      setAttachedComponents([]);
+      fetchAssignments(1);
+      fetchStats();
+    } catch (err) {
+      setError(err.message || 'Assignment operation failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleLoadMore = () => {
-    if (loadingMore || loading) return;
-    fetchAssignments(page + 1, true);
+  const handleTransferSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setError(null);
+
+    if (!transferForm.assetId) {
+      setError('Please select an assigned equipment to transfer.');
+      return;
+    }
+    if (!transferForm.toEmployeeId) {
+      setError('Please select a target custodian.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await assignmentApi.transfer({
+        assetId: transferForm.assetId,
+        toEmployeeId: transferForm.toEmployeeId,
+        conditionAtReturn: transferForm.conditionAtReturn,
+        conditionAtNewAssignment: transferForm.conditionAtNewAssignment,
+        transferReason: transferForm.transferReason,
+        remarks: transferForm.remarks,
+        cascadeComponents: Boolean(transferForm.cascadeComponents)
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || 'Transfer failed');
+      }
+
+      setSuccessMessage(`Asset '${transferForm.assetId}' transferred successfully!`);
+      setIsTransferModalOpen(false);
+      setTransferForm({
+        assetId: '',
+        selectedAsset: null,
+        toEmployeeId: '',
+        selectedTargetEmployee: null,
+        conditionAtReturn: 'GOOD',
+        conditionAtNewAssignment: 'GOOD',
+        transferReason: '',
+        remarks: '',
+        cascadeComponents: true
+      });
+      setCurrentCustodian(null);
+      setAttachedComponents([]);
+      fetchAssignments(1);
+      fetchStats();
+    } catch (err) {
+      setError(err.message || 'Transfer operation failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const fetchAllData = () => {
-    fetchMasterData();
-    fetchAssignments(1, false);
+  const handleReturnSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setError(null);
+
+    if (!returnForm.assetId) {
+      setError('Please select an equipment to return.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await assignmentApi.return({
+        assetId: returnForm.assetId,
+        conditionAtReturn: returnForm.conditionAtReturn,
+        returnReason: returnForm.returnReason,
+        remarks: returnForm.remarks,
+        cascadeComponents: Boolean(returnForm.cascadeComponents)
+      });
+
+      if (!res.success) {
+        throw new Error(res.message || 'Return to pool failed');
+      }
+
+      setSuccessMessage(`Asset '${returnForm.assetId}' returned to inventory pool.`);
+      setIsReturnModalOpen(false);
+      setReturnForm({
+        assetId: '',
+        selectedAsset: null,
+        conditionAtReturn: 'GOOD',
+        returnReason: 'Return to IT Reserve Store',
+        remarks: '',
+        cascadeComponents: true
+      });
+      setReturnAssetCustodian(null);
+      setAttachedComponents([]);
+      fetchAssignments(1);
+      fetchStats();
+    } catch (err) {
+      setError(err.message || 'Return operation failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  useEffect(() => {
-    fetchMasterData();
-  }, [token]);
+  // =========================================================================
+  // 5. Asset Custody Timeline & Documentation Slip Handlers
+  // =========================================================================
 
-  useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      setPage(1);
-      fetchAssignments(1, false);
-    }, 250);
-    return () => clearTimeout(delayDebounce);
-  }, [search, selectedStatus, token]);
-
-  // View Asset Timeline
   const handleOpenTimeline = async (assetId, assetName) => {
     setTimelineAsset({ assetId, assetName });
     setIsTimelineOpen(true);
     setHistoryLoading(true);
 
     try {
-      const res = await fetch(`/api/v1/assignments/asset/${assetId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAssetHistory(data.data || []);
+      const res = await assignmentApi.getAssetHistory(assetId);
+      if (res.success) {
+        setAssetHistory(res.data || []);
       }
     } catch (err) {
-      console.error('Failed to load asset history', err);
+      console.error('[AssetTransfers] Failed to load asset custody timeline:', err);
     } finally {
       setHistoryLoading(false);
     }
@@ -214,126 +553,8 @@ export default function AssetTransfers() {
     }
   };
 
-  // Submit New Assignment
-  const handleAssignSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/assignments/assign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(assignForm)
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Assignment failed');
-      }
-
-      setSuccessMessage(`Asset '${assignForm.assetId}' successfully assigned!`);
-      setIsAssignModalOpen(false);
-      setAssignForm({
-        assetId: '',
-        employeeId: '',
-        condition: 'GOOD',
-        transferReason: 'Initial Staff Assignment',
-        remarks: ''
-      });
-      fetchAllData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Submit Asset Transfer
-  const handleTransferSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/assignments/transfer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(transferForm)
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Transfer failed');
-      }
-
-      setSuccessMessage(`Asset '${transferForm.assetId}' transferred successfully!`);
-      setIsTransferModalOpen(false);
-      setTransferForm({
-        assetId: '',
-        toEmployeeId: '',
-        conditionAtReturn: 'GOOD',
-        conditionAtNewAssignment: 'GOOD',
-        transferReason: '',
-        remarks: ''
-      });
-      fetchAllData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Submit Return to Pool
-  const handleReturnSubmit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const res = await fetch('/api/v1/assignments/return', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(returnForm)
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Return to pool failed');
-      }
-
-      setSuccessMessage(`Asset '${returnForm.assetId}' returned to inventory pool.`);
-      setIsReturnModalOpen(false);
-      setReturnForm({
-        assetId: '',
-        conditionAtReturn: 'GOOD',
-        returnReason: 'Return to IT Reserve Store',
-        remarks: ''
-      });
-      fetchAllData();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Currently selected transfer asset and employees
-  const selectedTransferAsset = assets.find(a => a.assetId === transferForm.assetId);
-  const selectedAssignee = employees.find(e => e.employeeId === assignForm.employeeId);
-  const selectedTargetEmployee = employees.find(e => e.employeeId === transferForm.toEmployeeId);
-
-  // Assignments List (Server-Filtered)
-  const filteredAssignments = assignments;
-
-  // Summary Metrics
-  const totalRecords = assignments.length;
-  const activeCount = assignments.filter(a => a.status === 'ACTIVE').length;
-  const transferredCount = assignments.filter(a => a.status === 'TRANSFERRED').length;
-  const returnedCount = assignments.filter(a => a.status === 'RETURNED').length;
-
-  // Available and Assigned Assets Filtered for Modals
-  const availableAssets = assets.filter(a => a.status === 'AVAILABLE');
-  const assignedAssets = assets.filter(a => a.status === 'ASSIGNED');
-  const activeEmployees = employees.filter(e => e.isActive);
+  const isAdmin = user?.role === 'ADMIN';
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="page-body">
@@ -346,34 +567,48 @@ export default function AssetTransfers() {
       >
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => setIsReturnModalOpen(true)}
-          disabled={assignedAssets.length === 0}
+          onClick={() => {
+            setAttachedComponents([]);
+            setReturnAssetCustodian(null);
+            setIsReturnModalOpen(true);
+          }}
+          disabled={!isAdmin}
           id="btn-return-pool"
+          title={!isAdmin ? 'Admin permission required' : 'Return equipment to pool'}
         >
           <RotateCcw size={14} />
           <span>Return to Pool</span>
         </button>
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => setIsTransferModalOpen(true)}
-          disabled={assignedAssets.length === 0}
+          onClick={() => {
+            setAttachedComponents([]);
+            setCurrentCustodian(null);
+            setIsTransferModalOpen(true);
+          }}
+          disabled={!isAdmin}
           id="btn-transfer-asset"
+          title={!isAdmin ? 'Admin permission required' : 'Transfer equipment custody'}
         >
           <ArrowRightLeft size={14} />
           <span>Transfer</span>
         </button>
         <button
           className="btn btn-primary btn-sm"
-          onClick={() => setIsAssignModalOpen(true)}
-          disabled={availableAssets.length === 0}
+          onClick={() => {
+            setAttachedComponents([]);
+            setIsAssignModalOpen(true);
+          }}
+          disabled={!isAdmin}
           id="btn-assign-asset"
+          title={!isAdmin ? 'Admin permission required' : 'Assign equipment to staff'}
         >
           <Plus size={14} />
           <span>Assign Equipment</span>
         </button>
       </PageHeader>
 
-      {/* Success Banner */}
+      {/* Success Notification Banner */}
       {successMessage && (
         <div className="card" style={{
           backgroundColor: '#ECFDF5',
@@ -392,13 +627,14 @@ export default function AssetTransfers() {
           <button
             onClick={() => setSuccessMessage('')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#065F46' }}
+            title="Dismiss"
           >
             <X size={16} />
           </button>
         </div>
       )}
 
-      {/* Error Banner */}
+      {/* Error Notification Banner */}
       {error && (
         <div className="card" style={{
           backgroundColor: '#FEF2F2',
@@ -417,25 +653,26 @@ export default function AssetTransfers() {
           <button
             onClick={() => setError(null)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991B1B' }}
+            title="Dismiss"
           >
             <X size={16} />
           </button>
         </div>
       )}
 
-      {/* Standardized Metric Summary Cards */}
+      {/* Authoritative Metric Summary Cards (from assignmentApi.getStats) */}
       <div className="stats-grid cols-4">
         <StatCard
           label="Total Ledger Records"
-          value={totalRecords}
-          subtext="Chronological assignment log"
+          value={stats.total ?? 0}
+          subtext="Authoritative database total"
           icon={History}
           variant="indigo"
         />
 
         <StatCard
           label="Active Custody"
-          value={activeCount}
+          value={stats.active ?? 0}
           subtext="Currently deployed to staff"
           icon={CheckCircle2}
           variant="emerald"
@@ -443,7 +680,7 @@ export default function AssetTransfers() {
 
         <StatCard
           label="Transferred Log"
-          value={transferredCount}
+          value={stats.transferred ?? 0}
           subtext="Inter-department handovers"
           icon={ArrowRightLeft}
           variant="indigo"
@@ -451,18 +688,18 @@ export default function AssetTransfers() {
 
         <StatCard
           label="Returned to Store"
-          value={returnedCount}
+          value={stats.returned ?? 0}
           subtext="Restored to IT warehouse stock"
           icon={RotateCcw}
           variant="neutral"
         />
       </div>
 
-      {/* Standardized Filter and Search Bar */}
+      {/* Standardized Filter and Server Search Bar */}
       <div className="filter-bar">
         <div style={{
           display: 'grid',
-          gridTemplateColumns: search || selectedStatus ? '1fr 220px auto' : '1fr 220px',
+          gridTemplateColumns: search || selectedStatus || selectedDepartment ? '1fr 180px 180px auto' : '1fr 180px 180px',
           gap: 'var(--space-2)',
           alignItems: 'center'
         }}>
@@ -475,8 +712,12 @@ export default function AssetTransfers() {
           />
 
           <SelectInput
+            id="filter-status-select"
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
             placeholder="All Statuses"
             options={[
               { value: 'ACTIVE', label: 'ACTIVE (In Use)' },
@@ -485,28 +726,61 @@ export default function AssetTransfers() {
             ]}
           />
 
-          {(search || selectedStatus) && (
-            <ClearFilterButton
-              onClick={() => {
-                setSearch('');
-                setSelectedStatus('');
-              }}
-            />
+          <SelectInput
+            id="filter-department-select"
+            value={selectedDepartment}
+            onChange={(e) => {
+              setSelectedDepartment(e.target.value);
+              setPage(1);
+            }}
+            placeholder="All Departments"
+            options={[
+              { value: 'CNS', label: 'CNS' },
+              { value: 'ATM', label: 'ATM' },
+              { value: 'IT', label: 'IT' },
+              { value: 'ELECTRONICS', label: 'ELECTRONICS' },
+              { value: 'ELECTRICAL', label: 'ELECTRICAL' },
+              { value: 'OPERATIONS', label: 'OPERATIONS' },
+              { value: 'SECURITY', label: 'SECURITY' },
+              { value: 'FINANCE', label: 'FINANCE' },
+              { value: 'HR', label: 'HR' },
+              { value: 'COMMUNICATION', label: 'COMMUNICATION' },
+              { value: 'TERMINAL', label: 'TERMINAL' },
+              { value: 'ENGINEERING', label: 'ENGINEERING' }
+            ]}
+          />
+
+          {(search || selectedStatus || selectedDepartment || sortBy !== 'assignedDate' || sortOrder !== 'desc') && (
+            <ClearFilterButton onClick={handleClearFilters} />
           )}
         </div>
       </div>
 
-      {/* Custody Ledger Table */}
+      {/* Custody Ledger Table with Server-Driven Sorting */}
       <DataTable id="transfers-data-table">
         <thead>
           <tr>
-            <th>Assignment ID</th>
-            <th>Asset</th>
-            <th>Custodian</th>
-            <th>Department / Floor</th>
-            <th>Assigned / Returned</th>
+            {SORTABLE_COLUMNS.map(col => {
+              const isSorted = sortBy === col.backendField;
+              return (
+                <th
+                  key={col.key}
+                  onClick={() => handleSort(col.backendField)}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  title={`Click to sort by ${col.label}`}
+                >
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span>{col.label}</span>
+                    {isSorted ? (
+                      sortOrder === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />
+                    ) : (
+                      <ArrowUpDown size={12} style={{ opacity: 0.35 }} />
+                    )}
+                  </div>
+                </th>
+              );
+            })}
             <th>Condition</th>
-            <th>Status</th>
             <th style={{ textAlign: 'right' }}>Actions</th>
           </tr>
         </thead>
@@ -518,22 +792,22 @@ export default function AssetTransfers() {
                 <span style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading custody ledger...</span>
               </td>
             </tr>
-          ) : filteredAssignments.length === 0 ? (
+          ) : assignments.length === 0 ? (
             <EmptyState
               icon={ArrowRightLeft}
               title="No custody records match current criteria"
               description="Try modifying your search query or reset filter options."
               colSpan={8}
               action={
-                (search || selectedStatus) ? (
-                  <button onClick={() => { setSearch(''); setSelectedStatus(''); }} className="btn btn-secondary btn-sm">
+                (search || selectedStatus || selectedDepartment) ? (
+                  <button onClick={handleClearFilters} className="btn btn-secondary btn-sm">
                     Reset Filter
                   </button>
                 ) : null
               }
             />
           ) : (
-            filteredAssignments.map((item) => (
+            assignments.map((item) => (
               <tr key={item.assignmentId || item._id}>
                 <td style={{ fontWeight: 600, fontFamily: 'monospace' }}>
                   {item.assignmentId}
@@ -585,10 +859,6 @@ export default function AssetTransfers() {
                 </td>
 
                 <td>
-                  <span className="badge badge-neutral">{item.conditionAtAssignment}</span>
-                </td>
-
-                <td>
                   <span className={`badge ${
                     item.status === 'ACTIVE'
                       ? 'badge-available'
@@ -598,6 +868,10 @@ export default function AssetTransfers() {
                   }`}>
                     {item.status}
                   </span>
+                </td>
+
+                <td>
+                  <span className="badge badge-neutral">{item.conditionAtAssignment || 'GOOD'}</span>
                 </td>
 
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -634,19 +908,85 @@ export default function AssetTransfers() {
         </tbody>
       </DataTable>
 
-      {/* Progressive Load More Data Control */}
-      {filteredAssignments.length > 0 && (
-        <LoadMoreButton
-          currentCount={filteredAssignments.length}
-          totalCount={totalCount}
-          loading={loadingMore}
-          onLoadMore={handleLoadMore}
-          error={loadMoreError}
-          onRetry={handleLoadMore}
-          itemName="custody records"
-          id="load-more-transfers-btn"
-        />
-      )}
+      {/* Server-Side Pagination Footer */}
+      <div className="table-pagination" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        borderTop: '1px solid var(--border-subtle)',
+        background: 'var(--color-bg-card)',
+        borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+        fontSize: '0.8125rem',
+        color: 'var(--color-text-secondary)',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        {/* Record count summary */}
+        <div>
+          {totalCount > 0 ? (
+            <span>
+              Showing <strong style={{ color: 'var(--color-text-main)' }}>{(page - 1) * pageSize + 1}</strong> to{' '}
+              <strong style={{ color: 'var(--color-text-main)' }}>{Math.min(page * pageSize, totalCount)}</strong> of{' '}
+              <strong style={{ color: 'var(--color-text-main)' }}>{totalCount}</strong> records
+            </span>
+          ) : (
+            <span>No records to display</span>
+          )}
+        </div>
+
+        {/* Controls: Page size selector and page navigation buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>Rows per page:</span>
+            <select
+              id="select-transfers-page-size"
+              value={pageSize}
+              onChange={(e) => {
+                const newSize = parseInt(e.target.value, 10);
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              className="form-select"
+              style={{ width: '70px', height: '30px', padding: '0 6px', fontSize: '0.8125rem' }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              id="btn-prev-transfers-page"
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', height: '30px', padding: '0 8px' }}
+            >
+              <ChevronLeft size={15} />
+              <span>Prev</span>
+            </button>
+
+            <span style={{ padding: '0 4px', fontWeight: 500 }}>
+              Page {page} of {totalPages}
+            </span>
+
+            <button
+              id="btn-next-transfers-page"
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', height: '30px', padding: '0 8px' }}
+            >
+              <span>Next</span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* ================= MODAL: ASSIGN EQUIPMENT ================= */}
       <Modal
@@ -662,6 +1002,7 @@ export default function AssetTransfers() {
               type="button"
               className="btn btn-secondary"
               onClick={() => setIsAssignModalOpen(false)}
+              disabled={submitting}
             >
               Cancel
             </button>
@@ -670,48 +1011,53 @@ export default function AssetTransfers() {
               className="btn btn-primary"
               id="btn-submit-assign"
               onClick={handleAssignSubmit}
+              disabled={submitting || !assignForm.assetId || !assignForm.employeeId}
             >
-              Confirm Assignment
+              {submitting ? 'Assigning...' : 'Confirm Assignment'}
             </button>
           </>
         }
       >
         <form onSubmit={handleAssignSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {/* Server-driven Bounded Searchable Asset Picker */}
           <div className="form-group">
             <label className="form-label">Select Available Asset *</label>
-            <select
-              className="form-select"
-              required
+            <SearchableSelect
+              id="assign-asset-select"
+              placeholder="Search available equipment by ID, make, model..."
               value={assignForm.assetId}
-              onChange={(e) => setAssignForm({ ...assignForm, assetId: e.target.value })}
-            >
-              <option value="">-- Choose Available Equipment --</option>
-              {availableAssets.map(a => (
-                <option key={a.assetId} value={a.assetId}>
-                  {a.assetId} - {a.assetName} ({a.make} {a.model})
-                </option>
-              ))}
-            </select>
+              selectedOption={assignForm.selectedAsset}
+              loadOptions={loadAvailableAssets}
+              onChange={(opt, val) => {
+                setAssignForm(prev => ({ ...prev, assetId: val || '', selectedAsset: opt }));
+                fetchAssetComponents(val);
+              }}
+            />
           </div>
 
+          {/* Component Cascade Panel */}
+          {attachedComponents.length > 0 && (
+            <ComponentCascadeDisclosure
+              components={attachedComponents}
+              cascade={assignForm.cascadeComponents}
+              onToggle={(checked) => setAssignForm(prev => ({ ...prev, cascadeComponents: checked }))}
+            />
+          )}
+
+          {/* Server-driven Bounded Searchable Employee Picker */}
           <div className="form-group">
             <label className="form-label">Assignee Staff Member *</label>
-            <select
-              className="form-select"
-              required
+            <SearchableSelect
+              id="assign-employee-select"
+              placeholder="Search employee by ID or name..."
               value={assignForm.employeeId}
-              onChange={(e) => setAssignForm({ ...assignForm, employeeId: e.target.value })}
-            >
-              <option value="">-- Select Employee --</option>
-              {activeEmployees.map(emp => (
-                <option key={emp.employeeId} value={emp.employeeId}>
-                  {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department} [{emp.employeeType || 'AAI'}]
-                </option>
-              ))}
-            </select>
+              selectedOption={assignForm.selectedEmployee}
+              loadOptions={loadEmployees}
+              onChange={(opt, val) => setAssignForm(prev => ({ ...prev, employeeId: val || '', selectedEmployee: opt }))}
+            />
           </div>
 
-          {selectedAssignee && (
+          {assignForm.selectedEmployee && (
             <div style={{
               background: 'var(--color-bg-subtle)',
               border: '1px solid var(--border-subtle)',
@@ -726,18 +1072,17 @@ export default function AssetTransfers() {
                   fontWeight: 600,
                   padding: '2px 8px',
                   borderRadius: '12px',
-                  backgroundColor: (selectedAssignee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
-                  color: (selectedAssignee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                  backgroundColor: (assignForm.selectedEmployee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (assignForm.selectedEmployee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
                 }}>
-                  {selectedAssignee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
-                  {selectedAssignee.employmentCategory ? ` (${selectedAssignee.employmentCategory})` : ''}
+                  {assignForm.selectedEmployee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
                 </span>
               </div>
-              <div><strong>{selectedAssignee.name}</strong> ({selectedAssignee.employeeId}) • {selectedAssignee.designation || 'N/A'}</div>
-              <div><strong>Department:</strong> {selectedAssignee.department} • <strong>Location:</strong> {selectedAssignee.floor || 'N/A'}</div>
-              {selectedAssignee.contractorName && (
+              <div><strong>{assignForm.selectedEmployee.name || assignForm.selectedEmployee.fullName}</strong> ({assignForm.selectedEmployee.employeeId}) • {assignForm.selectedEmployee.designation || 'Staff'}</div>
+              <div><strong>Department:</strong> {assignForm.selectedEmployee.department} • <strong>Location:</strong> {assignForm.selectedEmployee.floor || 'N/A'}</div>
+              {assignForm.selectedEmployee.contractorName && (
                 <div style={{ color: '#6D28D9', marginTop: '2px' }}>
-                  <strong>Contractor / Vendor:</strong> {selectedAssignee.contractorName}
+                  <strong>Contractor / Vendor:</strong> {assignForm.selectedEmployee.contractorName}
                 </div>
               )}
             </div>
@@ -797,6 +1142,7 @@ export default function AssetTransfers() {
               type="button"
               className="btn btn-secondary"
               onClick={() => setIsTransferModalOpen(false)}
+              disabled={submitting}
             >
               Cancel
             </button>
@@ -805,14 +1151,15 @@ export default function AssetTransfers() {
               className="btn btn-primary"
               id="btn-submit-transfer"
               onClick={handleTransferSubmit}
+              disabled={submitting || !transferForm.assetId || !transferForm.toEmployeeId}
             >
-              Execute Transfer
+              {submitting ? 'Executing Transfer...' : 'Execute Transfer'}
             </button>
           </>
         }
       >
         <form onSubmit={handleTransferSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {/* Custody-Only Transfer Guarantee Banner */}
+          {/* Custody Guarantee Banner */}
           <div style={{
             background: '#F0FDF4',
             border: '1px solid #86EFAC',
@@ -830,24 +1177,30 @@ export default function AssetTransfers() {
             </div>
           </div>
 
+          {/* Searchable Currently Assigned Asset */}
           <div className="form-group">
             <label className="form-label">Select Currently Assigned Asset *</label>
-            <select
-              className="form-select"
-              required
+            <SearchableSelect
+              id="transfer-asset-select"
+              placeholder="Search currently assigned equipment by ID, make, model..."
               value={transferForm.assetId}
-              onChange={(e) => setTransferForm({ ...transferForm, assetId: e.target.value })}
-            >
-              <option value="">-- Choose Assigned Equipment --</option>
-              {assignedAssets.map(a => (
-                <option key={a.assetId} value={a.assetId}>
-                  {a.assetId} - {a.assetName} (Held by: {a.currentEmployeeName || 'Staff'})
-                </option>
-              ))}
-            </select>
+              selectedOption={transferForm.selectedAsset}
+              loadOptions={loadAssignedAssets}
+              onChange={handleSelectTransferAsset}
+            />
           </div>
 
-          {selectedTransferAsset && (
+          {/* Component Cascade Panel */}
+          {attachedComponents.length > 0 && (
+            <ComponentCascadeDisclosure
+              components={attachedComponents}
+              cascade={transferForm.cascadeComponents}
+              onToggle={(checked) => setTransferForm(prev => ({ ...prev, cascadeComponents: checked }))}
+            />
+          )}
+
+          {/* Current Custodian Display */}
+          {currentCustodian && (
             <div style={{
               background: 'var(--color-bg-subtle)',
               border: '1px dashed var(--border-strong)',
@@ -862,43 +1215,37 @@ export default function AssetTransfers() {
                   fontWeight: 600,
                   padding: '2px 8px',
                   borderRadius: '12px',
-                  backgroundColor: (selectedTransferAsset.currentEmployeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
-                  color: (selectedTransferAsset.currentEmployeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                  backgroundColor: (currentCustodian.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (currentCustodian.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
                 }}>
-                  {selectedTransferAsset.currentEmployeeType || 'AAI Staff'}
+                  {currentCustodian.employeeType || 'AAI Staff'}
                 </span>
               </div>
-              <div><strong>Name:</strong> {selectedTransferAsset.currentEmployeeName} ({selectedTransferAsset.currentEmployeeId})</div>
-              <div><strong>Designation:</strong> {selectedTransferAsset.currentDesignation || 'N/A'}</div>
-              <div><strong>Department:</strong> {selectedTransferAsset.department} • <strong>Floor:</strong> {selectedTransferAsset.floor}</div>
-              {selectedTransferAsset.currentContractorName && (
+              <div><strong>Name:</strong> {currentCustodian.name} ({currentCustodian.employeeId})</div>
+              <div><strong>Designation:</strong> {currentCustodian.designation || 'N/A'}</div>
+              <div><strong>Department:</strong> {currentCustodian.department} • <strong>Floor:</strong> {currentCustodian.floor || 'N/A'}</div>
+              {currentCustodian.contractorName && (
                 <div style={{ color: '#6D28D9', marginTop: '2px' }}>
-                  <strong>Contractor / Agency:</strong> {selectedTransferAsset.currentContractorName}
+                  <strong>Contractor / Agency:</strong> {currentCustodian.contractorName}
                 </div>
               )}
             </div>
           )}
 
+          {/* Searchable Target Employee */}
           <div className="form-group">
             <label className="form-label">Transfer To New Custodian (Target Staff) *</label>
-            <select
-              className="form-select"
-              required
+            <SearchableSelect
+              id="transfer-target-employee-select"
+              placeholder="Search target employee by ID or name..."
               value={transferForm.toEmployeeId}
-              onChange={(e) => setTransferForm({ ...transferForm, toEmployeeId: e.target.value })}
-            >
-              <option value="">-- Select New Employee --</option>
-              {activeEmployees
-                .filter(emp => !selectedTransferAsset || emp.employeeId !== selectedTransferAsset.currentEmployeeId)
-                .map(emp => (
-                  <option key={emp.employeeId} value={emp.employeeId}>
-                    {emp.name} ({emp.employeeId}) • {emp.designation} - {emp.department} [{emp.employeeType || 'AAI'}]
-                  </option>
-                ))}
-            </select>
+              selectedOption={transferForm.selectedTargetEmployee}
+              loadOptions={loadEmployees}
+              onChange={(opt, val) => setTransferForm(prev => ({ ...prev, toEmployeeId: val || '', selectedTargetEmployee: opt }))}
+            />
           </div>
 
-          {selectedTargetEmployee && (
+          {transferForm.selectedTargetEmployee && (
             <div style={{
               background: 'var(--color-bg-subtle)',
               border: '1px solid #93C5FD',
@@ -913,18 +1260,17 @@ export default function AssetTransfers() {
                   fontWeight: 600,
                   padding: '2px 8px',
                   borderRadius: '12px',
-                  backgroundColor: (selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
-                  color: (selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
+                  backgroundColor: (transferForm.selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#EDE9FE' : '#DBEAFE',
+                  color: (transferForm.selectedTargetEmployee.employeeType || 'AAI') === 'Contract' ? '#6D28D9' : '#1D4ED8'
                 }}>
-                  {selectedTargetEmployee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
-                  {selectedTargetEmployee.employmentCategory ? ` (${selectedTargetEmployee.employmentCategory})` : ''}
+                  {transferForm.selectedTargetEmployee.employeeType === 'Contract' ? 'Contract / Outsourced' : 'AAI Staff'}
                 </span>
               </div>
-              <div><strong>Name:</strong> {selectedTargetEmployee.name} ({selectedTargetEmployee.employeeId}) • {selectedTargetEmployee.designation || 'N/A'}</div>
-              <div><strong>Department:</strong> {selectedTargetEmployee.department} • <strong>Location:</strong> {selectedTargetEmployee.floor || 'N/A'}</div>
-              {selectedTargetEmployee.contractorName && (
+              <div><strong>Name:</strong> {transferForm.selectedTargetEmployee.name || transferForm.selectedTargetEmployee.fullName} ({transferForm.selectedTargetEmployee.employeeId}) • {transferForm.selectedTargetEmployee.designation || 'Staff'}</div>
+              <div><strong>Department:</strong> {transferForm.selectedTargetEmployee.department} • <strong>Location:</strong> {transferForm.selectedTargetEmployee.floor || 'N/A'}</div>
+              {transferForm.selectedTargetEmployee.contractorName && (
                 <div style={{ color: '#6D28D9', marginTop: '2px' }}>
-                  <strong>Contractor / Agency:</strong> {selectedTargetEmployee.contractorName}
+                  <strong>Contractor / Agency:</strong> {transferForm.selectedTargetEmployee.contractorName}
                 </div>
               )}
             </div>
@@ -1000,6 +1346,7 @@ export default function AssetTransfers() {
               type="button"
               className="btn btn-secondary"
               onClick={() => setIsReturnModalOpen(false)}
+              disabled={submitting}
             >
               Cancel
             </button>
@@ -1008,32 +1355,54 @@ export default function AssetTransfers() {
               className="btn btn-primary"
               id="btn-submit-return"
               onClick={handleReturnSubmit}
+              disabled={submitting || !returnForm.assetId}
             >
-              Unassign & Return
+              {submitting ? 'Returning...' : 'Unassign & Return'}
             </button>
           </>
         }
       >
         <form onSubmit={handleReturnSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          {/* Searchable Assigned Asset to Return */}
           <div className="form-group">
             <label className="form-label">Select Equipment to Return *</label>
-            <select
-              className="form-select"
-              required
+            <SearchableSelect
+              id="return-asset-select"
+              placeholder="Search currently assigned equipment by ID, make, model..."
               value={returnForm.assetId}
-              onChange={(e) => setReturnForm({ ...returnForm, assetId: e.target.value })}
-            >
-              <option value="">-- Choose Equipment to Unassign --</option>
-              {assignedAssets.map(a => (
-                <option key={a.assetId} value={a.assetId}>
-                  {a.assetId} - {a.assetName} (Held by: {a.currentEmployeeName || 'Staff'})
-                </option>
-              ))}
-            </select>
+              selectedOption={returnForm.selectedAsset}
+              loadOptions={loadAssignedAssets}
+              onChange={handleSelectReturnAsset}
+            />
           </div>
 
+          {/* Component Cascade Panel */}
+          {attachedComponents.length > 0 && (
+            <ComponentCascadeDisclosure
+              components={attachedComponents}
+              cascade={returnForm.cascadeComponents}
+              onToggle={(checked) => setReturnForm(prev => ({ ...prev, cascadeComponents: checked }))}
+            />
+          )}
+
+          {returnAssetCustodian && (
+            <div style={{
+              background: 'var(--color-bg-subtle)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              fontSize: '0.8125rem'
+            }}>
+              <div style={{ fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                Current Custodian Releasing Asset:
+              </div>
+              <div><strong>{returnAssetCustodian.name}</strong> ({returnAssetCustodian.employeeId})</div>
+              <div><strong>Department:</strong> {returnAssetCustodian.department} • <strong>Location:</strong> {returnAssetCustodian.floor || 'N/A'}</div>
+            </div>
+          )}
+
           <div className="form-group">
-            <label className="form-label">Condition on Return to Store</label>
+            <label className="form-label">Condition on Return to Store *</label>
             <select
               className="form-select"
               value={returnForm.conditionAtReturn}
@@ -1042,7 +1411,9 @@ export default function AssetTransfers() {
               <option value="EXCELLENT">EXCELLENT</option>
               <option value="GOOD">GOOD</option>
               <option value="FAIR">FAIR</option>
-              <option value="POOR">POOR (Requires maintenance)</option>
+              <option value="DEFECTIVE">DEFECTIVE (Faulty)</option>
+              <option value="NEEDS_REPAIR">NEEDS_REPAIR (Requires Maintenance)</option>
+              <option value="POOR">POOR</option>
               <option value="UNUSABLE">UNUSABLE (Damaged)</option>
             </select>
           </div>
@@ -1113,7 +1484,6 @@ export default function AssetTransfers() {
                 <div className="custody-timeline-container">
                   {assetHistory.map((entry, idx) => (
                     <div key={entry.assignmentId || idx} className="custody-timeline-item">
-                      {/* Timeline Node Dot */}
                       <div
                         className="custody-timeline-dot"
                         style={{
@@ -1121,7 +1491,6 @@ export default function AssetTransfers() {
                         }}
                       />
 
-                      {/* Timeline Content Card */}
                       <div className="custody-timeline-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <span style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'monospace' }}>
@@ -1155,7 +1524,7 @@ export default function AssetTransfers() {
                           </div>
                           <div>
                             <span style={{ color: 'var(--color-text-muted)' }}>Condition: </span>
-                            <strong>{entry.conditionAtAssignment}</strong>
+                            <strong>{entry.conditionAtAssignment || 'GOOD'}</strong>
                           </div>
                           <div>
                             <span style={{ color: 'var(--color-text-muted)' }}>Admin: </span>
@@ -1320,6 +1689,66 @@ export default function AssetTransfers() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/**
+ * Reusable Component Cascade Disclosure panel for attached peripheral items
+ */
+function ComponentCascadeDisclosure({ components, cascade, onToggle }) {
+  return (
+    <div style={{
+      background: 'var(--color-bg-subtle)',
+      border: '1px solid var(--border-subtle)',
+      borderRadius: 'var(--radius-md)',
+      padding: '12px 14px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>
+          <Layers size={15} color="var(--color-brand-600)" />
+          <span>Attached Components & Peripherals ({components.length})</span>
+        </div>
+        <span className="badge badge-neutral" style={{ fontSize: '11px' }}>Relationship Link</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '120px', overflowY: 'auto' }}>
+        {components.map((comp, idx) => (
+          <div key={comp.childAssetId || comp._id || idx} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '4px 8px',
+            background: 'var(--color-bg-card)',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.75rem'
+          }}>
+            <div>
+              <strong style={{ fontFamily: 'var(--font-mono, monospace)' }}>{comp.childAssetId}</strong>
+              {comp.componentRole && <span style={{ color: 'var(--color-text-muted)', marginLeft: '6px' }}>({comp.componentRole})</span>}
+            </div>
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>
+              {comp.relationshipType || 'ATTACHED_COMPONENT'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '4px', fontSize: '0.8125rem', fontWeight: 500 }}>
+        <input
+          type="checkbox"
+          checked={cascade}
+          onChange={(e) => onToggle(e.target.checked)}
+          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+        />
+        <span>Cascade custody change to all attached components ({components.length})</span>
+      </label>
+      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginLeft: '24px' }}>
+        When checked, child components will transition alongside this parent asset automatically.
+      </div>
     </div>
   );
 }

@@ -1,3 +1,6 @@
+import mongoose from 'mongoose';
+import Asset from '../models/Asset.js';
+import Employee from '../models/Employee.js';
 import { assetRepository } from './assetRepository.js';
 import { complaintRepository } from './complaintRepository.js';
 import { employeeRepository } from './employeeRepository.js';
@@ -102,6 +105,40 @@ export const dashboardRepository = {
    * Aggregate distribution of equipment across hardware categories
    */
   getCategoryDistribution: async () => {
+    if (mongoose.connection.readyState === 1) {
+      const raw = await Asset.aggregate([
+        { $match: { isArchived: false } },
+        {
+          $group: {
+            _id: { $ifNull: ['$category', 'Other / Uncategorized'] },
+            count: { $sum: 1 },
+            assigned: {
+              $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'ASSIGNED'] }, 1, 0] }
+            },
+            available: {
+              $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'AVAILABLE'] }, 1, 0] }
+            },
+            maintenance: {
+              $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'UNDER_MAINTENANCE'] }, 1, 0] }
+            }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      const total = raw.reduce((sum, item) => sum + item.count, 0);
+
+      return raw.map(item => ({
+        category: item._id,
+        count: item.count,
+        assigned: item.assigned,
+        available: item.available,
+        maintenance: item.maintenance,
+        percentage: total > 0 ? Number(((item.count / total) * 100).toFixed(1)) : 0
+      }));
+    }
+
+    // In-memory fallback
     const assetsRes = await assetRepository.find({ limit: 10000 });
     const assets = assetsRes.items || [];
     const total = assets.length;
@@ -142,6 +179,78 @@ export const dashboardRepository = {
    * Aggregate distribution and equipment utilization by regional department
    */
   getDepartmentDistribution: async () => {
+    if (mongoose.connection.readyState === 1) {
+      const [assetAgg, employeeAgg] = await Promise.all([
+        Asset.aggregate([
+          { $match: { isArchived: false } },
+          {
+            $group: {
+              _id: { $ifNull: ['$department', 'General Pool'] },
+              assetCount: { $sum: 1 },
+              assignedCount: {
+                $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'ASSIGNED'] }, 1, 0] }
+              },
+              availableCount: {
+                $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'AVAILABLE'] }, 1, 0] }
+              },
+              maintenanceCount: {
+                $sum: { $cond: [{ $eq: [{ $toUpper: '$status' }, 'UNDER_MAINTENANCE'] }, 1, 0] }
+              }
+            }
+          }
+        ]),
+        Employee.aggregate([
+          { $match: { isActive: true } },
+          {
+            $group: {
+              _id: { $ifNull: ['$department', 'Unassigned'] },
+              employeeCount: { $sum: 1 }
+            }
+          }
+        ])
+      ]);
+
+      const deptMap = new Map();
+
+      for (const emp of employeeAgg) {
+        const dept = emp._id || 'Unassigned';
+        if (!deptMap.has(dept)) {
+          deptMap.set(dept, {
+            department: dept,
+            assetCount: 0,
+            assignedCount: 0,
+            availableCount: 0,
+            maintenanceCount: 0,
+            employeeCount: 0
+          });
+        }
+        deptMap.get(dept).employeeCount = emp.employeeCount;
+      }
+
+      for (const ast of assetAgg) {
+        const dept = ast._id || 'General Pool';
+        if (!deptMap.has(dept)) {
+          deptMap.set(dept, {
+            department: dept,
+            assetCount: 0,
+            assignedCount: 0,
+            availableCount: 0,
+            maintenanceCount: 0,
+            employeeCount: 0
+          });
+        }
+        const entry = deptMap.get(dept);
+        entry.assetCount = ast.assetCount;
+        entry.assignedCount = ast.assignedCount;
+        entry.availableCount = ast.availableCount;
+        entry.maintenanceCount = ast.maintenanceCount;
+      }
+
+      return Array.from(deptMap.values())
+        .sort((a, b) => b.assetCount - a.assetCount);
+    }
+
+    // In-memory fallback
     const assetsRes = await assetRepository.find({ limit: 10000 });
     const assets = assetsRes.items || [];
 
@@ -311,6 +420,28 @@ export const dashboardRepository = {
    * Aggregate distribution across all operational statuses
    */
   getStatusDistribution: async () => {
+    if (mongoose.connection.readyState === 1) {
+      const raw = await Asset.aggregate([
+        { $match: { isArchived: false } },
+        {
+          $group: {
+            _id: { $toUpper: { $ifNull: ['$status', 'AVAILABLE'] } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      const total = raw.reduce((sum, r) => sum + r.count, 0);
+
+      return raw.map(r => ({
+        status: r._id,
+        count: r.count,
+        percentage: total > 0 ? Number(((r.count / total) * 100).toFixed(1)) : 0
+      }));
+    }
+
+    // In-memory fallback
     const assetsRes = await assetRepository.find({ limit: 10000 });
     const assets = assetsRes.items || [];
     const total = assets.length;
@@ -332,6 +463,54 @@ export const dashboardRepository = {
    * Aggregate procurement distribution across vendors from asset.pdf
    */
   getVendorDistribution: async () => {
+    if (mongoose.connection.readyState === 1) {
+      const raw = await Asset.aggregate([
+        { $match: { isArchived: false } },
+        {
+          $project: {
+            supplierName: {
+              $cond: [
+                { $and: [{ $ne: ['$supplier', null] }, { $ne: ['$supplier', ''] }] },
+                '$supplier',
+                {
+                  $cond: [
+                    { $and: [{ $ne: ['$vendor', null] }, { $ne: ['$vendor', ''] }] },
+                    '$vendor',
+                    'Unknown Supplier'
+                  ]
+                }
+              ]
+            },
+            purchaseCost: {
+              $cond: [
+                { $and: [{ $gt: ['$purchaseCost', 0] }, { $eq: [{ $type: '$purchaseCost' }, 'number'] }] },
+                '$purchaseCost',
+                0
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: '$supplierName',
+            assetCount: { $sum: 1 },
+            totalCostINR: { $sum: '$purchaseCost' }
+          }
+        },
+        { $sort: { assetCount: -1 } }
+      ]);
+
+      const total = raw.reduce((sum, item) => sum + item.assetCount, 0);
+
+      return raw.map(entry => ({
+        vendorName: entry._id || 'Unknown Supplier',
+        assetCount: entry.assetCount,
+        totalCostINR: entry.totalCostINR,
+        percentage: total > 0 ? Number(((entry.assetCount / total) * 100).toFixed(1)) : 0
+      }));
+    }
+
+    // In-memory fallback
     const assetsRes = await assetRepository.find({ limit: 10000 });
     const assets = assetsRes.items || [];
     const total = assets.length;
@@ -365,6 +544,28 @@ export const dashboardRepository = {
    * Aggregate distribution across rationalized asset types
    */
   getAssetTypeDistribution: async () => {
+    if (mongoose.connection.readyState === 1) {
+      const raw = await Asset.aggregate([
+        { $match: { isArchived: false } },
+        {
+          $group: {
+            _id: { $toUpper: { $ifNull: ['$assetType', 'OTHER'] } },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]);
+
+      const total = raw.reduce((sum, item) => sum + item.count, 0);
+
+      return raw.map(item => ({
+        assetType: item._id,
+        count: item.count,
+        percentage: total > 0 ? Number(((item.count / total) * 100).toFixed(1)) : 0
+      }));
+    }
+
+    // In-memory fallback
     const assetsRes = await assetRepository.find({ limit: 10000 });
     const assets = assetsRes.items || [];
     const total = assets.length;

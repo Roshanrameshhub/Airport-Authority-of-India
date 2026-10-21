@@ -575,6 +575,7 @@ export const extractSheetRows = (sheet, {
       assetName: suggestedAssetName || '',
       make: '',
       model: '',
+      technology: '',
       serialNumber: '',
       installDate: null,
       warrantyEndDate: null,
@@ -721,6 +722,7 @@ export const generateSampleTemplate = (configuredFields = null) => {
     if (f.fieldId === 'assetName') return 'e.g. Equipment Name (e.g. Desktop PC)';
     if (f.fieldId === 'make') return 'e.g. Dell / HP / Lenovo / Apple';
     if (f.fieldId === 'model') return 'e.g. Hardware Model Name';
+    if (f.fieldId === 'technology') return 'e.g. NVMe SSD / IPS / Laser / Ethernet';
     if (f.fieldId === 'serialNumber') return 'e.g. Unique Hardware Serial Number';
     if (f.fieldId === 'installDate') return 'YYYY-MM-DD (e.g. 2024-01-15)';
     if (f.fieldId === 'warrantyEndDate') return 'YYYY-MM-DD (e.g. 2027-01-15)';

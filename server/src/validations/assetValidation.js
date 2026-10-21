@@ -2,9 +2,7 @@ import { z } from 'zod';
 
 export const createAssetSchema = z.object({
   assetId: z.string().optional().or(z.literal('')),
-  assetName: z.string({
-    required_error: 'Asset Name is required'
-  }).min(2, 'Asset Name must be at least 2 characters').trim(),
+  assetName: z.string().trim().optional().default(''),
   assetType: z.enum([
     // IT Equipment
     'DESKTOP', 'LAPTOP', 'WORKSTATION', 'SERVER', 'MONITOR', 'STORAGE', 'THIN_CLIENT',
@@ -26,28 +24,21 @@ export const createAssetSchema = z.object({
   category: z.string({
     required_error: 'Category is required'
   }).min(2, 'Category must be specified').trim(),
-  make: z.string({
-    required_error: 'Make / Company is required'
-  }).min(1, 'Make / Company is required').trim(),
-  model: z.string({
-    required_error: 'Model is required'
-  }).min(1, 'Model is required').trim(),
+  make: z.string().trim().optional().default(''),
+  model: z.string().trim().optional().default(''),
+  technology: z.string().optional().default(''),
   serialNumber: z.string().optional().or(z.literal('')),
   oldAssetId: z.string().optional().default(''),
   qrCode: z.string().optional().default(''),
   barcode: z.string().optional().default(''),
 
-  installDate: z.string({
-    required_error: 'Install Date is required'
-  }).refine((date) => !isNaN(Date.parse(date)), {
+  installDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'Install Date must be a valid date'
   }),
-  warrantyStartDate: z.string().optional().refine((date) => !date || !isNaN(Date.parse(date)), {
+  warrantyStartDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'Warranty Start Date must be a valid date'
   }),
-  warrantyEndDate: z.string({
-    required_error: 'Warranty End Date is required'
-  }).refine((date) => !isNaN(Date.parse(date)), {
+  warrantyEndDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'Warranty End Date must be a valid date'
   }),
 
@@ -55,30 +46,30 @@ export const createAssetSchema = z.object({
   supplier: z.string().optional().default(''),
   vendor: z.string().optional().default(''),
   supplyOrderNumber: z.string().optional().default(''),
-  purchaseDate: z.string().optional().refine((date) => !date || !isNaN(Date.parse(date)), {
+  purchaseDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'Purchase Date must be a valid date'
   }),
   purchaseCost: z.number().min(0, 'Purchase cost cannot be negative').optional().nullable(),
   amcApplicable: z.boolean().optional().default(false),
   amcContractId: z.string().optional().default(''),
-  amcEndDate: z.string().optional().refine((date) => !date || !isNaN(Date.parse(date)), {
+  amcEndDate: z.string().optional().nullable().or(z.literal('')).refine((date) => !date || !isNaN(Date.parse(date)), {
     message: 'AMC End Date must be a valid date'
   }),
 
   // Facility & Location
-  department: z.string({
-    required_error: 'Department is required'
-  }).min(2, 'Department is required').trim(),
+  department: z.string().trim().optional().default(''),
   departmentId: z.string().optional().default(''),
   location: z.string().optional().default('AAI Operational Facility'),
   locationId: z.string().optional().default(''),
-  floor: z.string({
-    required_error: 'Floor is required'
-  }).min(1, 'Floor is required').trim(),
+  floor: z.string().trim().optional().default(''),
   room: z.string().optional().default(''),
   intercom: z.string().optional().default(''),
 
-  // Root OS & Network fields removed
+  // Root OS & Network fields (preserved for backward compatibility with legacy callers)
+  operatingSystem: z.string().optional(),
+  osVersion: z.string().optional(),
+  ipAddress: z.string().optional(),
+  macAddress: z.string().optional(),
 
   // Lifecycle
   remarks: z.string().optional().default(''),
@@ -94,7 +85,7 @@ export const createAssetSchema = z.object({
     'WRITE_OFF',
     'RETIRED',
     'DISPOSED'
-  ], { required_error: 'Asset Status is required' }),
+  ]).optional().default('AVAILABLE'),
   condition: z.enum([
     'NEW',
     'EXCELLENT',
@@ -105,7 +96,7 @@ export const createAssetSchema = z.object({
     'UNSERVICEABLE',
     'UNUSABLE',
     'OBSOLETE'
-  ], { required_error: 'Asset Condition is required' }),
+  ]).optional().default('GOOD'),
 
   // Custodian
   currentEmployeeId: z.string().optional().or(z.literal('')),

@@ -49,3 +49,48 @@ export const createCategorySchema = z.object({
   requiresOS: z.boolean().optional().default(false),
   description: z.string().optional()
 });
+
+export const createMakeSchema = z.object({
+  name: z.string({
+    required_error: 'Make / Brand name is required'
+  }).min(1, 'Make / Brand name cannot be empty').trim(),
+  code: z.string().trim().optional().default(''),
+  categories: z.array(z.string().trim()).optional().default([]),
+  assetTypes: z.array(z.string().trim()).optional().default([]),
+  description: z.string().trim().optional().default(''),
+  website: z.string().trim().optional().default(''),
+  isActive: z.boolean().optional().default(true)
+});
+
+export const updateMakeSchema = createMakeSchema.partial();
+
+export const createModelSchema = z.object({
+  name: z.string({
+    required_error: 'Model name is required'
+  }).min(1, 'Model name cannot be empty').trim(),
+  make: z.string({
+    required_error: 'Make / Brand is required'
+  }).min(1, 'Make / Brand cannot be empty').trim(),
+  makeId: z.string().trim().optional().nullable(),
+  category: z.string().trim().optional().default(''),
+  assetType: z.string().trim().optional().default(''),
+  technology: z.string().trim().optional().default(''),
+  specifications: z.record(z.any()).optional().default({}),
+  description: z.string().trim().optional().default(''),
+  isActive: z.boolean().optional().default(true)
+});
+
+export const updateModelSchema = createModelSchema.partial();
+
+export const createTechnologySchema = z.object({
+  name: z.string({
+    required_error: 'Technology name is required'
+  }).min(1, 'Technology name cannot be empty').trim(),
+  category: z.string().trim().optional().default(''),
+  assetTypes: z.array(z.string().trim()).optional().default([]),
+  description: z.string().trim().optional().default(''),
+  isActive: z.boolean().optional().default(true)
+});
+
+export const updateTechnologySchema = createTechnologySchema.partial();
+

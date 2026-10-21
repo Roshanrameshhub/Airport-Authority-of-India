@@ -255,6 +255,7 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
       osVersion: osNorm.osVersion,
       assetName: finalAssetName,
       model: (row.model || '').trim(),
+      technology: (row.technology || '').trim(),
       department: resolvedDept,
       floor: resolvedFloor,
       userName: resolvedUserName,
@@ -296,6 +297,7 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
           assetName: cleanedRow._source,
           make: cleanedRow._source,
           model: cleanedRow._source,
+          technology: cleanedRow._source,
           serialNumber: cleanedRow._source,
           installDate: cleanedRow._source,
           warrantyEndDate: cleanedRow._source,
@@ -321,7 +323,7 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
       let hasNewData = false;
 
       const fieldsToCheck = [
-        'assetName', 'make', 'model', 'department', 'floor',
+        'assetName', 'make', 'model', 'technology', 'department', 'floor',
         'installDate', 'warrantyEndDate', 'operatingSystem', 'osVersion',
         'employeeId', 'userName', 'designation', 'remarks', 'category', 'assetId',
         'oldAssetId', 'assetType', 'supplier', 'supplyOrderNumber', 'purchaseDate',
@@ -418,6 +420,28 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
     const item = record.data;
     const errors = [];
 
+    // Check if serial already exists in database (for Step 5 skip/update strategy)
+    if (item.serialNumber) {
+      const existingInDb = await assetRepository.findBySerialNumber(item.serialNumber);
+      if (existingInDb) {
+        item.isExistingInDb = true;
+        item.existingAssetId = existingInDb.assetId;
+        // When updating an existing asset, backfill missing/blank values from the database record
+        // so that update workbooks containing only a subset of columns pass validation cleanly.
+        if (!item.assetName && existingInDb.assetName) item.assetName = existingInDb.assetName;
+        if (!item.make && existingInDb.make) item.make = existingInDb.make;
+        if (!item.model && existingInDb.model) item.model = existingInDb.model;
+        if (!item.technology && existingInDb.technology) item.technology = existingInDb.technology;
+        if (!item.category && existingInDb.category) item.category = existingInDb.category;
+        if ((!item.department || item.department === 'General') && existingInDb.department) item.department = existingInDb.department;
+        if ((!item.floor || item.floor === '1st Floor') && existingInDb.floor) item.floor = existingInDb.floor;
+        if (!item.installDate && existingInDb.installDate) item.installDate = existingInDb.installDate;
+        if (!item.warrantyEndDate && existingInDb.warrantyEndDate) item.warrantyEndDate = existingInDb.warrantyEndDate;
+      }
+    } else {
+      errors.push('Serial Number is required');
+    }
+
     // Deduce category on merged record if missing
     if (!item.category) {
       item.category = deduceCategory(item.assetName, item.make, item.model);
@@ -438,17 +462,6 @@ export const reconcileAndCleanRows = async (rawRows = [], options = {}) => {
     }
     if (!item.floor) {
       item.floor = '1st Floor';
-    }
-
-    if (!item.serialNumber) {
-      errors.push('Serial Number is required');
-    } else {
-      // Check if serial already exists in database (for Step 5 skip/update strategy)
-      const existingInDb = await assetRepository.findBySerialNumber(item.serialNumber);
-      if (existingInDb) {
-        item.isExistingInDb = true;
-        item.existingAssetId = existingInDb.assetId;
-      }
     }
 
     // Date validation & defaults
