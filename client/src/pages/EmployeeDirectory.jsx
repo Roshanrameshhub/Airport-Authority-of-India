@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
@@ -28,6 +28,7 @@ import { DataTable, TableActionBtn } from '../components/ui/DataTable';
 import EmptyState from '../components/ui/EmptyState';
 import Modal from '../components/ui/Modal';
 import LoadMoreButton from '../components/ui/LoadMoreButton';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import { downloadAuthenticatedPdf } from '../services/api';
 
 export default function EmployeeDirectory() {
@@ -62,14 +63,24 @@ export default function EmployeeDirectory() {
   const [modalMode, setModalMode] = useState('CREATE'); // 'CREATE' or 'EDIT'
   const [currentEmpId, setCurrentEmpId] = useState(null);
   const [formData, setFormData] = useState({
-    employeeId: '',
     name: '',
     designation: '',
     department: '',
+    employeeType: 'AAI',
+    intercom: '',
     floor: '',
+    ipAddress: '',
+    assetId: '',
+    monitorId: '',
+    keyboardId: '',
+    mouseId: '',
+    upsId: '',
+    ptrId: '',
+    scannerId: '',
+    laptopId: '',
+    employeeId: '',
     email: '',
     phone: '',
-    employeeType: 'AAI',
     employmentCategory: 'Regular',
     contractorName: '',
     createLoginAccount: true
@@ -77,6 +88,28 @@ export default function EmployeeDirectory() {
   const [formError, setFormError] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
+
+  const loadCategoryAssets = useCallback(async (term, categoryFilter) => {
+    try {
+      const q = new URLSearchParams({
+        status: 'AVAILABLE',
+        limit: '15'
+      });
+      if (term) q.append('search', term);
+      if (categoryFilter) q.append('category', categoryFilter);
+      const res = await fetch(`/api/v1/assets?${q.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        return Array.isArray(data.data) ? data.data : (data.data?.items || []);
+      }
+      return [];
+    } catch (err) {
+      console.error('Failed to search available assets:', err);
+      return [];
+    }
+  }, [token]);
 
   const fetchEmployees = async (pageNum = 1, isLoadMore = false) => {
     if (isLoadMore) {
@@ -189,14 +222,24 @@ export default function EmployeeDirectory() {
     setModalMode('CREATE');
     setCurrentEmpId(null);
     setFormData({
-      employeeId: '',
       name: '',
       designation: '',
       department: '',
+      employeeType: 'AAI',
+      intercom: '',
       floor: '',
+      ipAddress: '',
+      assetId: '',
+      monitorId: '',
+      keyboardId: '',
+      mouseId: '',
+      upsId: '',
+      ptrId: '',
+      scannerId: '',
+      laptopId: '',
+      employeeId: '',
       email: '',
       phone: '',
-      employeeType: 'AAI',
       employmentCategory: 'Regular',
       contractorName: '',
       createLoginAccount: true
@@ -209,14 +252,24 @@ export default function EmployeeDirectory() {
     setModalMode('EDIT');
     setCurrentEmpId(emp.employeeId);
     setFormData({
-      employeeId: emp.employeeId,
       name: emp.name,
       designation: emp.designation,
       department: emp.department,
+      employeeType: emp.employeeType || 'AAI',
+      intercom: emp.intercom || '',
       floor: emp.floor,
+      ipAddress: emp.ipAddress || '',
+      assetId: '',
+      monitorId: '',
+      keyboardId: '',
+      mouseId: '',
+      upsId: '',
+      ptrId: '',
+      scannerId: '',
+      laptopId: '',
+      employeeId: emp.employeeId,
       email: emp.email || '',
       phone: emp.phone || '',
-      employeeType: emp.employeeType || 'AAI',
       employmentCategory: emp.employmentCategory || 'Regular',
       contractorName: emp.contractorName || '',
       createLoginAccount: false
@@ -726,7 +779,9 @@ export default function EmployeeDirectory() {
                     {selectedEmployee.employeeType || 'AAI'} &bull; {selectedEmployee.employmentCategory || 'Regular'}
                   </span>
                   <span className="badge badge-neutral">
-                    {selectedEmployee.assignedAssetsCount || 0} Assets Custodied
+                    {empAssets && empAssets.length > 0
+                      ? `${empAssets.filter(a => a.status === 'ACTIVE').length} Assets Custodied`
+                      : `${selectedEmployee.assignedAssetsCount || 0} Assets Custodied`}
                   </span>
                   <span className="badge badge-available">
                     Active Roster
@@ -794,6 +849,26 @@ export default function EmployeeDirectory() {
                   {selectedEmployee.phone || 'Not Available'}
                 </span>
               </div>
+
+              {selectedEmployee.intercom && (
+                <div className="employee-info-item">
+                  <span className="employee-info-label">Intercom</span>
+                  <span className="employee-info-value">
+                    <Phone size={15} color="var(--color-brand-600)" style={{ flexShrink: 0 }} />
+                    <strong>{selectedEmployee.intercom}</strong>
+                  </span>
+                </div>
+              )}
+
+              {selectedEmployee.ipAddress && (
+                <div className="employee-info-item">
+                  <span className="employee-info-label">IP No</span>
+                  <span className="employee-info-value">
+                    <Laptop size={15} color="var(--color-brand-600)" style={{ flexShrink: 0 }} />
+                    <code style={{ fontFamily: 'monospace' }}>{selectedEmployee.ipAddress}</code>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Account & Login Management (Admin only) */}
@@ -1029,7 +1104,7 @@ export default function EmployeeDirectory() {
         onClose={() => setIsModalOpen(false)}
         title={modalMode === 'CREATE' ? 'Register New Staff Officer' : `Edit Employee: ${currentEmpId}`}
         subtitle="Staff metadata will be cross-referenced with asset custody tags and handover slips"
-        size="md"
+        size={modalMode === 'CREATE' ? 'lg' : 'md'}
         id="employee-modal"
         footer={
           <>
@@ -1071,228 +1146,331 @@ export default function EmployeeDirectory() {
         )}
 
         <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-            <div className="form-group">
-              <label className="form-label">Employee ID *</label>
-              <input
-                type="text"
-                required
-                className="form-input"
-                disabled={modalMode === 'EDIT'}
-                placeholder="e.g. AAI-10940"
-                value={formData.employeeId}
-                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                id="modal-employee-id"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Staff Name *</label>
-              <input
-                type="text"
-                required
-                className="form-input"
-                placeholder="Full User Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                id="modal-employee-name"
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-            <div className="form-group">
-              <label className="form-label">Designation *</label>
-              <input
-                type="text"
-                required
-                className="form-input"
-                placeholder="e.g. Senior Manager (CNS)"
-                value={formData.designation}
-                onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                id="modal-employee-designation"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Department *</label>
-              <input
-                type="text"
-                required
-                className="form-input"
-                placeholder="e.g. CNS, IT Department, Finance"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                id="modal-employee-department"
-              />
-            </div>
-          </div>
-
-          {/* Employment Classification */}
-          <div style={{
-            background: 'var(--color-bg-subtle)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-2)'
-          }}>
-            <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-brand-600)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Employment Classification
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+          {modalMode === 'CREATE' ? (
+            /* EXACT 15-FIELD SPECIFICATION FOR CREATE EMPLOYEE */
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+              {/* 1. User name */}
               <div className="form-group">
-                <label className="form-label">Employee Type *</label>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({
-                      ...formData,
-                      employeeType: 'AAI',
-                      employmentCategory: formData.employmentCategory === 'Contractual' || formData.employmentCategory === 'Outsourced' ? 'Regular' : formData.employmentCategory,
-                      contractorName: ''
-                    })}
-                    className="btn btn-sm"
-                    style={{
-                      flex: 1,
-                      backgroundColor: formData.employeeType === 'AAI' ? 'var(--color-brand-600)' : 'var(--color-bg-surface)',
-                      color: formData.employeeType === 'AAI' ? '#ffffff' : 'var(--color-text-main)',
-                      border: `1px solid ${formData.employeeType === 'AAI' ? 'var(--color-brand-600)' : 'var(--border-subtle)'}`,
-                      fontWeight: formData.employeeType === 'AAI' ? 700 : 500
-                    }}
-                    id="btn-emp-type-aai"
-                  >
-                    AAI Staff
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({
-                      ...formData,
-                      employeeType: 'Contract',
-                      employmentCategory: formData.employmentCategory === 'Regular' || formData.employmentCategory === 'Deputation' ? 'Contractual' : formData.employmentCategory
-                    })}
-                    className="btn btn-sm"
-                    style={{
-                      flex: 1,
-                      backgroundColor: formData.employeeType === 'Contract' ? '#7C3AED' : 'var(--color-bg-surface)',
-                      color: formData.employeeType === 'Contract' ? '#ffffff' : 'var(--color-text-main)',
-                      border: `1px solid ${formData.employeeType === 'Contract' ? '#7C3AED' : 'var(--border-subtle)'}`,
-                      fontWeight: formData.employeeType === 'Contract' ? 700 : 500
-                    }}
-                    id="btn-emp-type-contract"
-                  >
-                    Contract / Outsourced
-                  </button>
+                <label className="form-label" htmlFor="field-user-name">User name *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  placeholder="Full User Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  id="field-user-name"
+                />
+              </div>
+
+              {/* 2. Designation */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-designation">Designation</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Senior Manager (CNS)"
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  id="field-designation"
+                />
+              </div>
+
+              {/* 3. Department */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-department">Department</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. CNS, IT Department, Operations"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  id="field-department"
+                />
+              </div>
+
+              {/* 4. AAI/Contract */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-aai-contract">AAI/Contract</label>
+                <select
+                  className="form-select"
+                  value={formData.employeeType}
+                  onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
+                  id="field-aai-contract"
+                >
+                  <option value="AAI">AAI</option>
+                  <option value="Contract">Contract</option>
+                </select>
+              </div>
+
+              {/* 5. Intercom */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-intercom">Intercom</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 2401, 108"
+                  value={formData.intercom}
+                  onChange={(e) => setFormData({ ...formData, intercom: e.target.value })}
+                  id="field-intercom"
+                />
+              </div>
+
+              {/* 6. Location */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-location">Location</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 1st Floor, Technical Block"
+                  value={formData.floor}
+                  onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+                  id="field-location"
+                />
+              </div>
+
+              {/* 7. IP No */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-ip-no">IP No</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 10.20.30.40"
+                  value={formData.ipAddress}
+                  onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
+                  id="field-ip-no"
+                />
+              </div>
+
+              {/* 8. Asset ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-asset-id">Asset ID</label>
+                <SearchableSelect
+                  id="field-asset-id"
+                  placeholder="Search & select available PC/Asset ID..."
+                  value={formData.assetId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Desktop PC')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, assetId: val || '' }))}
+                />
+              </div>
+
+              {/* 9. Monitor ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-monitor-id">Monitor ID</label>
+                <SearchableSelect
+                  id="field-monitor-id"
+                  placeholder="Search & select available Monitor ID..."
+                  value={formData.monitorId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Monitor')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, monitorId: val || '' }))}
+                />
+              </div>
+
+              {/* 10. Keyboard ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-keyboard-id">Keyboard ID</label>
+                <SearchableSelect
+                  id="field-keyboard-id"
+                  placeholder="Search & select available Keyboard ID..."
+                  value={formData.keyboardId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Keyboard')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, keyboardId: val || '' }))}
+                />
+              </div>
+
+              {/* 11. Mouse ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-mouse-id">Mouse ID</label>
+                <SearchableSelect
+                  id="field-mouse-id"
+                  placeholder="Search & select available Mouse ID..."
+                  value={formData.mouseId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Mouse')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, mouseId: val || '' }))}
+                />
+              </div>
+
+              {/* 12. UPS ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-ups-id">UPS ID</label>
+                <SearchableSelect
+                  id="field-ups-id"
+                  placeholder="Search & select available UPS ID..."
+                  value={formData.upsId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'UPS')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, upsId: val || '' }))}
+                />
+              </div>
+
+              {/* 13. PTR ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-ptr-id">PTR ID</label>
+                <SearchableSelect
+                  id="field-ptr-id"
+                  placeholder="Search & select available Printer ID..."
+                  value={formData.ptrId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Printer')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, ptrId: val || '' }))}
+                />
+              </div>
+
+              {/* 14. Scanner ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-scanner-id">Scanner ID</label>
+                <SearchableSelect
+                  id="field-scanner-id"
+                  placeholder="Search & select available Scanner ID..."
+                  value={formData.scannerId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Scanner')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, scannerId: val || '' }))}
+                />
+              </div>
+
+              {/* 15. Laptop ID */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="field-laptop-id">Laptop ID</label>
+                <SearchableSelect
+                  id="field-laptop-id"
+                  placeholder="Search & select available Laptop ID..."
+                  value={formData.laptopId}
+                  loadOptions={(q) => loadCategoryAssets(q, 'Laptop')}
+                  onChange={(opt, val) => setFormData(prev => ({ ...prev, laptopId: val || '' }))}
+                />
+              </div>
+            </div>
+          ) : (
+            /* EDIT EMPLOYEE MODE */
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div className="form-group">
+                  <label className="form-label">Employee ID</label>
+                  <input
+                    type="text"
+                    disabled
+                    className="form-input"
+                    value={formData.employeeId}
+                    id="modal-employee-id"
+                    style={{ backgroundColor: 'var(--color-bg-subtle)', cursor: 'not-allowed' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Staff Name *</label>
+                  <input
+                    type="text"
+                    required
+                    className="form-input"
+                    placeholder="Full User Name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    id="modal-employee-name"
+                  />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Employment Category *</label>
-                <select
-                  className="form-select"
-                  value={formData.employmentCategory}
-                  onChange={(e) => setFormData({ ...formData, employmentCategory: e.target.value })}
-                  id="modal-employment-category"
-                >
-                  {formData.employeeType === 'AAI' ? (
-                    <>
-                      <option value="Regular">Regular / Permanent</option>
-                      <option value="Deputation">On Deputation</option>
-                      <option value="Intern">Trainee / Intern</option>
-                      <option value="Casual">Casual / Temporary</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Contractual">Contractual Staff</option>
-                      <option value="Outsourced">Outsourced Vendor Personnel</option>
-                      <option value="Casual">Casual / Ad-hoc</option>
-                    </>
-                  )}
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div className="form-group">
+                  <label className="form-label">Designation</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Senior Manager (CNS)"
+                    value={formData.designation}
+                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                    id="modal-employee-designation"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Department</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. CNS, IT Department, Finance"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    id="modal-employee-department"
+                  />
+                </div>
               </div>
-            </div>
 
-            {formData.employeeType === 'Contract' && (
-              <div className="form-group" style={{ marginTop: '4px' }}>
-                <label className="form-label">Contractor / Vendor Agency Name *</label>
-                <input
-                  type="text"
-                  required={formData.employeeType === 'Contract'}
-                  className="form-input"
-                  placeholder="e.g. Skyline IT Solutions / M/s TechServices"
-                  value={formData.contractorName}
-                  onChange={(e) => setFormData({ ...formData, contractorName: e.target.value })}
-                  id="modal-contractor-name"
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-3)' }}>
+                <div className="form-group">
+                  <label className="form-label">AAI/Contract</label>
+                  <select
+                    className="form-select"
+                    value={formData.employeeType}
+                    onChange={(e) => setFormData({ ...formData, employeeType: e.target.value })}
+                    id="modal-employee-type"
+                  >
+                    <option value="AAI">AAI</option>
+                    <option value="Contract">Contract</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Intercom</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 2401"
+                    value={formData.intercom}
+                    onChange={(e) => setFormData({ ...formData, intercom: e.target.value })}
+                    id="modal-employee-intercom"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Location / Floor</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 1st Floor, CNS Block"
+                    value={formData.floor}
+                    onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
+                    id="modal-employee-floor"
+                  />
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="form-group">
-            <label className="form-label">Office Floor / Seating Location *</label>
-            <input
-              type="text"
-              required
-              className="form-input"
-              placeholder="e.g. 1st Floor, CNS Block, Cabin 104"
-              value={formData.floor}
-              onChange={(e) => setFormData({ ...formData, floor: e.target.value })}
-              id="modal-employee-floor"
-            />
-          </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-3)' }}>
+                <div className="form-group">
+                  <label className="form-label">IP No</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 10.20.30.40"
+                    value={formData.ipAddress}
+                    onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
+                    id="modal-employee-ip"
+                  />
+                </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-            <div className="form-group">
-              <label className="form-label">Official Email Address</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="staff.name@aai.aero"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                id="modal-employee-email"
-              />
-            </div>
+                <div className="form-group">
+                  <label className="form-label">Official Email</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="staff.name@aai.aero"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    id="modal-employee-email"
+                  />
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">Contact / Extension Phone</label>
-              <input
-                type="tel"
-                className="form-input"
-                placeholder="+91 11 24632950"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                id="modal-employee-phone"
-              />
-            </div>
-          </div>
-
-          {modalMode === 'CREATE' && (
-            <div style={{
-              padding: '12px 14px',
-              backgroundColor: 'var(--color-bg-subtle)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px'
-            }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 600, color: 'var(--color-text-main)' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.createLoginAccount}
-                  onChange={(e) => setFormData({ ...formData, createLoginAccount: e.target.checked })}
-                  id="chk-create-login-account"
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-brand-600)' }}
-                />
-                <span>Create Login Account Automatically</span>
-              </label>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: '24px' }}>
-                System will generate a User account with Username matching Employee ID and a strong temporary password.
+                <div className="form-group">
+                  <label className="form-label">Contact Phone</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="+91 11 24632950"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    id="modal-employee-phone"
+                  />
+                </div>
               </div>
-            </div>
+            </>
           )}
         </form>
       </Modal>

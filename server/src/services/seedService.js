@@ -225,80 +225,121 @@ export const seedDemoAccounts = async () => {
     );
     logger.info(`[Demo Seeder] EMPLOYEE account seeded: username='${seededEmployee01User.username}' | role='${seededEmployee01User.role}' | employeeId='${seededEmployee01User.employeeId}' | isActive=${seededEmployee01User.isActive}`);
 
-    // ─── 7. Demo Asset (assigned to legacy AAI-10842) ────────────────────────
-    const demoAssetData = {
-      assetId: 'AAI-REG-PC-2024-0001',
-      assetName: 'Dell OptiPlex 7090 MT Workstation',
-      category: 'Desktop PC',
-      make: 'Dell',
-      model: 'OptiPlex 7090 MT',
-      serialNumber: 'DL-7090-99481',
-      installDate: new Date('2024-01-15'),
-      warrantyStartDate: new Date('2024-01-15'),
-      warrantyEndDate: new Date('2027-01-15'),
-      operatingSystem: 'Windows 11 Enterprise',
-      osVersion: '23H2 (Build 22631)',
-      department: 'Communication, Navigation & Surveillance',
-      floor: '2nd Floor, Technical Block',
-      remarks: 'Primary operational workstation assigned to CNS staff for radar telemetry',
-      status: 'ASSIGNED',
-      condition: 'EXCELLENT',
-      currentEmployeeId: 'AAI-10842',
-      currentEmployeeName: 'Staff Employee',
-      currentDesignation: 'Assistant Manager (CNS)',
-      currentAssignmentDate: new Date('2024-01-16'),
-      isArchived: false
+    // ─── 6b. Additional Demo Accounts (admin.demo & employee.demo) ───────────
+    const adminDemoPasswordHash = await bcrypt.hash('AaiAdmin@Demo2026', 10);
+    const adminDemoUserData = {
+      username: 'admin.demo',
+      name: 'System Administrator (Demo)',
+      email: 'admin.demo@aai.local',
+      password: adminDemoPasswordHash,
+      role: 'ADMIN',
+      employeeId: 'AAI-ADMIN-DEMO',
+      designation: 'Joint General Manager (IT)',
+      department: 'Airport Systems & Information Technology',
+      isActive: true
     };
-    const seededAsset = await Asset.findOneAndUpdate(
-      { assetId: 'AAI-REG-PC-2024-0001' },
-      { $set: demoAssetData },
-      { upsert: true, new: true }
-    );
-    logger.info(`[Demo Seeder] Demo asset ensured: ${seededAsset.assetName} (${seededAsset.assetId})`);
-
-    // ─── 8. Demo Assignment History ──────────────────────────────────────────
-    await AssetAssignment.findOneAndUpdate(
-      { assignmentId: 'ASN-2024-0001' },
-      {
-        $set: {
-          assignmentId: 'ASN-2024-0001',
-          assetId: 'AAI-REG-PC-2024-0001',
-          assetName: 'Dell OptiPlex 7090 MT Workstation',
-          employeeId: 'AAI-10842',
-          employeeName: 'Staff Employee',
-          department: 'Communication, Navigation & Surveillance',
-          floor: '2nd Floor, Technical Block',
-          designation: 'Assistant Manager (CNS)',
-          assignedDate: new Date('2024-01-16'),
-          status: 'ACTIVE',
-          remarks: 'Initial official allocation for CNS radar monitoring duties'
-        }
-      },
+    await User.findOneAndUpdate(
+      { $or: [{ username: 'admin.demo' }, { email: 'admin.demo@aai.local' }] },
+      { $set: adminDemoUserData },
       { upsert: true, new: true }
     );
 
-    // ─── 9. Sample Complaint Ticket ──────────────────────────────────────────
-    await Complaint.findOneAndUpdate(
-      { ticketId: 'TKT-2024-0001' },
-      {
-        $set: {
-          ticketId: 'TKT-2024-0001',
-          assetId: 'AAI-REG-PC-2024-0001',
-          assetName: 'Dell OptiPlex 7090 MT Workstation',
-          category: 'HARDWARE_FAULT',
-          title: 'Display port flickering on dual monitor setup',
-          description: 'Secondary display flickers intermittently during radar monitoring session.',
-          severity: 'LOW',
-          priority: 'P4_LOW',
-          status: 'OPEN',
-          reportedBy: { employeeId: 'AAI-10842', name: 'Staff Employee', email: 'employee@aai.local' },
-          department: 'Communication, Navigation & Surveillance',
-          floor: '2nd Floor, Technical Block',
-          createdAt: new Date('2024-06-10')
-        }
-      },
+    const employeeDemoPasswordHash = await bcrypt.hash('AaiEmployee@Demo2026', 10);
+    const employeeDemoUserData = {
+      username: 'employee.demo',
+      name: 'Demo Employee User',
+      email: 'employee.demo@aai.local',
+      password: employeeDemoPasswordHash,
+      role: 'EMPLOYEE',
+      employeeId: 'AAI-EMP-DEMO',
+      designation: 'Junior Executive (IT)',
+      department: 'Airport Systems & Information Technology',
+      isActive: true
+    };
+    await User.findOneAndUpdate(
+      { $or: [{ username: 'employee.demo' }, { email: 'employee.demo@aai.local' }] },
+      { $set: employeeDemoUserData },
       { upsert: true, new: true }
     );
+    logger.info('[Demo Seeder] Additional demo accounts seeded: admin.demo@aai.local and employee.demo@aai.local');
+
+    // ─── 7. Demo Asset, Assignment, and Complaint (Disabled on boot by default) ──
+    let seededAsset = null;
+    if (process.env.SEED_DEMO_ASSETS === 'true') {
+      const demoAssetData = {
+        assetId: 'AAI-REG-PC-2024-0001',
+        assetName: 'Dell OptiPlex 7090 MT Workstation',
+        category: 'Desktop PC',
+        make: 'Dell',
+        model: 'OptiPlex 7090 MT',
+        serialNumber: 'DL-7090-99481',
+        installDate: new Date('2024-01-15'),
+        warrantyStartDate: new Date('2024-01-15'),
+        warrantyEndDate: new Date('2027-01-15'),
+        operatingSystem: 'Windows 11 Enterprise',
+        osVersion: '23H2 (Build 22631)',
+        department: 'Communication, Navigation & Surveillance',
+        floor: '2nd Floor, Technical Block',
+        remarks: 'Primary operational workstation assigned to CNS staff for radar telemetry',
+        status: 'ASSIGNED',
+        condition: 'EXCELLENT',
+        currentEmployeeId: 'AAI-10842',
+        currentEmployeeName: 'Staff Employee',
+        currentDesignation: 'Assistant Manager (CNS)',
+        currentAssignmentDate: new Date('2024-01-16'),
+        isArchived: false
+      };
+      seededAsset = await Asset.findOneAndUpdate(
+        { assetId: 'AAI-REG-PC-2024-0001' },
+        { $set: demoAssetData },
+        { upsert: true, new: true }
+      );
+      logger.info(`[Demo Seeder] Demo asset ensured: ${seededAsset.assetName} (${seededAsset.assetId})`);
+
+      // ─── 8. Demo Assignment History ──────────────────────────────────────────
+      await AssetAssignment.findOneAndUpdate(
+        { assignmentId: 'ASN-2024-0001' },
+        {
+          $set: {
+            assignmentId: 'ASN-2024-0001',
+            assetId: 'AAI-REG-PC-2024-0001',
+            assetName: 'Dell OptiPlex 7090 MT Workstation',
+            employeeId: 'AAI-10842',
+            employeeName: 'Staff Employee',
+            department: 'Communication, Navigation & Surveillance',
+            floor: '2nd Floor, Technical Block',
+            designation: 'Assistant Manager (CNS)',
+            assignedDate: new Date('2024-01-16'),
+            status: 'ACTIVE',
+            remarks: 'Initial official allocation for CNS radar monitoring duties'
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      // ─── 9. Sample Complaint Ticket ──────────────────────────────────────────
+      await Complaint.findOneAndUpdate(
+        { ticketId: 'TKT-2024-0001' },
+        {
+          $set: {
+            ticketId: 'TKT-2024-0001',
+            assetId: 'AAI-REG-PC-2024-0001',
+            assetName: 'Dell OptiPlex 7090 MT Workstation',
+            category: 'HARDWARE_FAULT',
+            title: 'Display port flickering on dual monitor setup',
+            description: 'Secondary display flickers intermittently during radar monitoring session.',
+            severity: 'LOW',
+            priority: 'P4_LOW',
+            status: 'OPEN',
+            reportedBy: { employeeId: 'AAI-10842', name: 'Staff Employee', email: 'employee@aai.local' },
+            department: 'Communication, Navigation & Surveillance',
+            floor: '2nd Floor, Technical Block',
+            createdAt: new Date('2024-06-10')
+          }
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     logger.info('================================================================================');
     logger.info('✔ AAI-AMS DEMO SEED COMPLETE');

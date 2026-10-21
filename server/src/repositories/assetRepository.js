@@ -513,6 +513,279 @@ export const ALLOWED_SORT_FIELDS = new Set([
   'currentEmployeeName'
 ]);
 
+// ─── Category Query & Matching Normalization ─────────────────────────────────
+
+/**
+ * Builds a MongoDB query condition for asset category filtering,
+ * resolving operational naming conventions (e.g. CPU vs Desktop PC, Lap Mouse vs Laptop MSE)
+ * and preventing capitalization and peripheral collisions.
+ */
+export const buildCategoryMongoCondition = (category = '') => {
+  if (!category || typeof category !== 'string') return null;
+  const raw = category.trim();
+  if (!raw || raw.toLowerCase() === 'all') return null;
+
+  const norm = raw.toLowerCase();
+
+  // 1. CPU / Desktop PC / Desktop Workstation
+  if (norm === 'cpu') {
+    return {
+      $or: [
+        { category: { $regex: /^(cpu|desktop(\s*pc)?|desktop|workstation)$/i } },
+        { assetName: { $regex: /^cpu$/i } },
+        { $and: [{ assetType: 'DESKTOP' }, { category: { $regex: /^(it equipment|office equipment|other)?$/i } }] }
+      ]
+    };
+  }
+
+  // 2. Monitor
+  if (norm === 'monitor') {
+    return {
+      $or: [
+        { category: { $regex: /^(monitor|screen)$/i } },
+        { $and: [{ assetType: 'MONITOR' }, { category: { $regex: /^(it equipment|office equipment|other)?$/i } }] }
+      ]
+    };
+  }
+
+  // 3. Camera / CCTV
+  if (norm === 'camera') {
+    return {
+      $or: [
+        { category: { $regex: /^(camera(\s*\/\s*cctv)?|cctv)$/i } },
+        { category: { $regex: /camera/i } },
+        { assetType: 'CCTV' }
+      ]
+    };
+  }
+
+  // 4. Keyboard
+  if (norm === 'keyboard') {
+    return {
+      $or: [
+        { category: { $regex: /^(keyboard|kbd)$/i } },
+        { $and: [{ assetName: { $regex: /^keyboard$/i } }, { assetType: 'PERIPHERAL' }] }
+      ]
+    };
+  }
+
+  // 5. Mouse (Regular mouse ONLY; strictly excludes Lap Mouse / Laptop MSE)
+  if (norm === 'mouse') {
+    return {
+      $and: [
+        {
+          $or: [
+            { category: { $regex: /^(mouse|mse)$/i } },
+            { $and: [{ assetName: { $regex: /^mouse$/i } }, { assetType: 'PERIPHERAL' }] }
+          ]
+        },
+        { category: { $not: /lap/i } },
+        { assetName: { $not: /lap/i } }
+      ]
+    };
+  }
+
+  // 6. Lap Mouse (Laptop MSE / Lap Mouse)
+  if (norm === 'lap mouse' || norm === 'laptop mse' || norm === 'lap mse' || norm === 'lapmouse') {
+    return {
+      $or: [
+        { category: { $regex: /^(lap\s*mouse|laptop\s*mse|lap\s*mse|lapmouse)$/i } },
+        { $and: [{ assetName: { $regex: /^(lap\s*mouse|laptop\s*mse|lap\s*mse)$/i } }, { assetType: 'PERIPHERAL' }] }
+      ]
+    };
+  }
+
+  // 7. Laptop (Laptop computer; strictly excludes Laptop MSE)
+  if (norm === 'laptop') {
+    return {
+      $and: [
+        {
+          $or: [
+            { category: { $regex: /^laptop$/i } },
+            { $and: [{ assetType: 'LAPTOP' }, { category: { $regex: /^(it equipment|office equipment|other)?$/i } }] }
+          ]
+        },
+        { category: { $not: /mse/i } },
+        { category: { $not: /mouse/i } }
+      ]
+    };
+  }
+
+  // 8. Desktop PC (Preserve existing category option)
+  if (norm === 'desktop pc' || norm === 'desktop') {
+    return {
+      $or: [
+        { category: { $regex: /^(desktop(\s*pc)?|desktop|cpu|workstation)$/i } },
+        { assetName: { $regex: /^cpu$/i } },
+        { $and: [{ assetType: 'DESKTOP' }, { category: { $regex: /^(it equipment|office equipment|other)?$/i } }] }
+      ]
+    };
+  }
+
+  // 9. Printer
+  if (norm === 'printer') {
+    return {
+      $or: [
+        { category: { $regex: /^printer$/i } },
+        { $and: [{ assetType: 'PRINTER' }, { category: { $regex: /^(printing|it equipment|office equipment)?$/i } }] }
+      ]
+    };
+  }
+
+  // 10. Scanner
+  if (norm === 'scanner') {
+    return {
+      $or: [
+        { category: { $regex: /^scanner$/i } },
+        { assetType: 'SCANNER' }
+      ]
+    };
+  }
+
+  // 11. UPS / Online UPS / Switch UPS
+  if (norm === 'ups' || norm === 'online ups' || norm === 'switch ups') {
+    return {
+      $or: [
+        { category: { $regex: /^((online|switch)\s+)?ups$/i } },
+        { assetType: 'UPS' }
+      ]
+    };
+  }
+
+  // 12. Network Switch / Switches
+  if (norm === 'network switch' || norm === 'switches') {
+    return {
+      $or: [
+        { category: { $regex: /^(network\s*switch|switches|server\s*\/\s*network)$/i } },
+        { assetType: { $in: ['NETWORK', 'SWITCH'] } }
+      ]
+    };
+  }
+
+  // Generic fallback: case-insensitive exact match for any other category
+  return {
+    category: { $regex: new RegExp(`^${escapeRegex(raw)}$`, 'i') }
+  };
+};
+
+/**
+ * Matches an asset against a category filter in-memory with the same semantics.
+ */
+export const matchCategoryInMemory = (asset, category = '') => {
+  if (!category || typeof category !== 'string') return true;
+  const raw = category.trim();
+  if (!raw || raw.toLowerCase() === 'all') return true;
+
+  const norm = raw.toLowerCase();
+  const cat = (asset.category || '').toLowerCase().trim();
+  const name = (asset.assetName || '').toLowerCase().trim();
+  const type = (asset.assetType || '').toUpperCase().trim();
+
+  // 1. CPU
+  if (norm === 'cpu') {
+    return (
+      cat === 'cpu' ||
+      cat === 'desktop pc' ||
+      cat === 'desktop' ||
+      cat === 'workstation' ||
+      name === 'cpu' ||
+      (type === 'DESKTOP' && (!cat || cat === 'it equipment' || cat === 'office equipment' || cat === 'other'))
+    );
+  }
+
+  // 2. Monitor
+  if (norm === 'monitor') {
+    return (
+      cat === 'monitor' ||
+      cat === 'screen' ||
+      (type === 'MONITOR' && (!cat || cat === 'it equipment' || cat === 'office equipment' || cat === 'other'))
+    );
+  }
+
+  // 3. Camera
+  if (norm === 'camera') {
+    return (
+      cat === 'camera' ||
+      cat === 'cctv' ||
+      cat === 'camera / cctv' ||
+      cat.includes('camera') ||
+      type === 'CCTV'
+    );
+  }
+
+  // 4. Keyboard
+  if (norm === 'keyboard') {
+    return (
+      cat === 'keyboard' ||
+      cat === 'kbd' ||
+      (name === 'keyboard' && type === 'PERIPHERAL')
+    );
+  }
+
+  // 5. Mouse (strictly excludes Lap Mouse / Laptop MSE)
+  if (norm === 'mouse') {
+    const isMouse = (cat === 'mouse' || cat === 'mse' || (name === 'mouse' && type === 'PERIPHERAL'));
+    const isNotLap = !cat.includes('lap') && !name.includes('lap');
+    return isMouse && isNotLap;
+  }
+
+  // 6. Lap Mouse
+  if (norm === 'lap mouse' || norm === 'laptop mse' || norm === 'lap mse' || norm === 'lapmouse') {
+    return (
+      cat === 'lap mouse' ||
+      cat === 'laptop mse' ||
+      cat === 'lap mse' ||
+      cat === 'lapmouse' ||
+      (cat.includes('lap') && (cat.includes('mse') || cat.includes('mouse'))) ||
+      (name.includes('lap') && (name.includes('mse') || name.includes('mouse')))
+    );
+  }
+
+  // 7. Laptop (strictly excludes Laptop MSE)
+  if (norm === 'laptop') {
+    const isLap = cat === 'laptop' || (type === 'LAPTOP' && (!cat || cat === 'it equipment' || cat === 'office equipment' || cat === 'other'));
+    return isLap && !cat.includes('mse') && !cat.includes('mouse');
+  }
+
+  // 8. Desktop PC
+  if (norm === 'desktop pc' || norm === 'desktop') {
+    return (
+      cat === 'desktop pc' ||
+      cat === 'desktop' ||
+      cat === 'cpu' ||
+      cat === 'workstation' ||
+      name === 'cpu' ||
+      (type === 'DESKTOP' && (!cat || cat === 'it equipment' || cat === 'office equipment' || cat === 'other'))
+    );
+  }
+
+  // 9. Printer
+  if (norm === 'printer') {
+    return (
+      cat === 'printer' ||
+      (type === 'PRINTER' && (!cat || cat === 'printing' || cat === 'it equipment' || cat === 'office equipment'))
+    );
+  }
+
+  // 10. Scanner
+  if (norm === 'scanner') {
+    return cat === 'scanner' || type === 'SCANNER';
+  }
+
+  // 11. UPS / Online UPS / Switch UPS
+  if (norm === 'ups' || norm === 'online ups' || norm === 'switch ups') {
+    return cat === 'ups' || cat === 'online ups' || cat === 'switch ups' || type === 'UPS';
+  }
+
+  // 12. Network Switch / Switches
+  if (norm === 'network switch' || norm === 'switches') {
+    return cat === 'network switch' || cat === 'switches' || cat === 'server / network' || type === 'NETWORK' || type === 'SWITCH';
+  }
+
+  // Generic fallback: case-insensitive exact match
+  return cat === norm;
+};
+
 export const assetRepository = {
   findPaginated: async (options = {}) => assetRepository.find(options),
 
@@ -556,8 +829,15 @@ export const assetRepository = {
 
     if (mongoose.connection.readyState === 1) {
       const query = { isArchived };
+      const andConditions = [];
 
-      if (category) query.category = category;
+      if (category && category.trim().toLowerCase() !== 'all') {
+        const catCond = buildCategoryMongoCondition(category);
+        if (catCond) {
+          andConditions.push(catCond);
+        }
+      }
+
       if (assetType) query.assetType = assetType.toUpperCase();
       if (status) query.status = status;
       if (condition) query.condition = condition;
@@ -595,8 +875,6 @@ export const assetRepository = {
       }
 
       // Logically independent conditions using $and to prevent IP filter and search collision
-      const andConditions = [];
-
       if (ipAddress) {
         const ipRegex = new RegExp(escapeRegex(ipAddress), 'i');
         andConditions.push({
@@ -641,7 +919,9 @@ export const assetRepository = {
     // In-memory fallback
     let list = Array.from(memoryAssets.values()).filter(a => a.isArchived === isArchived);
 
-    if (category) list = list.filter(a => a.category === category);
+    if (category && category.trim().toLowerCase() !== 'all') {
+      list = list.filter(a => matchCategoryInMemory(a, category));
+    }
     if (assetType) {
       const at = assetType.toUpperCase();
       list = list.filter(a => (a.assetType || mapCategoryToAssetType(a.category)) === at);
@@ -801,7 +1081,9 @@ export const assetRepository = {
   },
 
   create: async (data) => {
-    const assetId = data.assetId ? data.assetId.trim().toUpperCase() : await generateAssetIdAsync(data.category);
+    const assetId = data.assetId && String(data.assetId).trim()
+      ? String(data.assetId).trim().toUpperCase()
+      : await generateAssetIdAsync(data.category);
     const sn = data.serialNumber && String(data.serialNumber).trim()
       ? String(data.serialNumber).trim().toUpperCase()
       : undefined;

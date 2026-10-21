@@ -1,27 +1,31 @@
 import { z } from 'zod';
 
 export const createEmployeeSchema = z.object({
-  employeeId: z.string({
-    required_error: 'Employee ID is required'
-  }).min(2, 'Employee ID must be at least 2 characters').trim(),
+  employeeId: z.string().trim().optional().or(z.literal('')),
   name: z.string({
-    required_error: 'Staff / User Name is required'
-  }).min(2, 'Name must be at least 2 characters').trim(),
-  designation: z.string({
-    required_error: 'Designation is required'
-  }).min(2, 'Designation must be at least 2 characters').trim(),
-  department: z.string({
-    required_error: 'Department is required'
-  }).min(2, 'Department must be specified').trim(),
-  floor: z.string({
-    required_error: 'Floor / Location is required'
-  }).min(1, 'Floor must be specified').trim(),
-  email: z.string().email('Invalid email address format').optional().or(z.literal('')),
-  phone: z.string().optional().or(z.literal('')),
+    required_error: 'User Name is required'
+  }).min(1, 'Name cannot be empty').trim(),
+  designation: z.string().trim().optional().default('Staff'),
+  department: z.string().trim().optional().default('Operations'),
+  floor: z.string().trim().optional().default('Main Terminal'),
+  intercom: z.string().trim().optional().default(''),
+  ipAddress: z.string().trim().optional().default(''),
   employeeType: z.enum(['AAI', 'Contract']).optional().default('AAI'),
   employmentCategory: z.string().optional().default('Regular'),
   contractorName: z.string().optional().default(''),
-  createLoginAccount: z.boolean().optional().default(true)
+  email: z.string().email('Invalid email address format').optional().or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')),
+  createLoginAccount: z.boolean().optional().default(true),
+  // Fields 8-15 asset references
+  assetId: z.string().trim().optional().default(''),
+  monitorId: z.string().trim().optional().default(''),
+  keyboardId: z.string().trim().optional().default(''),
+  mouseId: z.string().trim().optional().default(''),
+  upsId: z.string().trim().optional().default(''),
+  ptrId: z.string().trim().optional().default(''),
+  scannerId: z.string().trim().optional().default(''),
+  laptopId: z.string().trim().optional().default(''),
+  assignedAssetIds: z.array(z.string().trim()).optional().default([])
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();

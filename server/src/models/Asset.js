@@ -5,11 +5,11 @@ import { calculateWarrantyStatus } from '../utils/warranty.js';
 const computerConfigurationSchema = new mongoose.Schema({
   processor: { type: String, trim: true, default: '' },
   processorSpeed: { type: String, trim: true, default: '' },
-  ramSizeGb: { type: Number, default: null },
+  ramSizeGb: { type: mongoose.Schema.Types.Mixed, default: null },
   ramType: { type: String, trim: true, default: '' }, // DDR3, DDR4, DDR5
-  ramSlots: { type: Number, default: null },
+  ramSlots: { type: mongoose.Schema.Types.Mixed, default: null },
   storageType: { type: String, trim: true, default: '' }, // HDD, SSD, NVMe
-  storageCapacityGb: { type: Number, default: null },
+  storageCapacityGb: { type: mongoose.Schema.Types.Mixed, default: null },
   storageModel: { type: String, trim: true, default: '' },
   graphicsCard: { type: String, trim: true, default: '' },
   opticalDrive: { type: String, trim: true, default: '' },
@@ -35,7 +35,7 @@ const softwareConfigurationSchema = new mongoose.Schema({
 
 // Reusable Subdocument Schema for Display Configuration (Phase 3 readiness)
 const displayConfigurationSchema = new mongoose.Schema({
-  screenSizeInches: { type: Number, default: null },
+  screenSizeInches: { type: mongoose.Schema.Types.Mixed, default: null },
   resolution: { type: String, trim: true, default: '' }, // e.g. 1920x1080, 4K
   panelType: { type: String, trim: true, default: '' }, // IPS, VA, TN, OLED
   ports: [{ type: String, trim: true }], // HDMI, DisplayPort, VGA
@@ -44,11 +44,11 @@ const displayConfigurationSchema = new mongoose.Schema({
 
 // Reusable Subdocument Schema for Power Backup (UPS) Configuration (Phase 3 readiness)
 const powerBackupConfigurationSchema = new mongoose.Schema({
-  capacityVa: { type: Number, default: null }, // e.g. 600, 1000, 1500, 2000
-  capacityWatts: { type: Number, default: null },
+  capacityVa: { type: mongoose.Schema.Types.Mixed, default: null }, // e.g. 600, 1000, 1500, 2000, 1.5 kVA
+  capacityWatts: { type: mongoose.Schema.Types.Mixed, default: null },
   topology: { type: String, trim: true, default: 'Line-Interactive' }, // Line-Interactive, Online Double Conversion, Offline
   batteryType: { type: String, trim: true, default: 'VRLA / SMF' },
-  batteryQuantity: { type: Number, default: null },
+  batteryQuantity: { type: mongoose.Schema.Types.Mixed, default: null },
   estimatedBackupMinutes: { type: Number, default: null },
   lastBatteryReplacementDate: { type: Date, default: null }
 }, { _id: false });
@@ -63,7 +63,7 @@ const peripheralConfigurationSchema = new mongoose.Schema({
 // Reusable Subdocument Schema for Network Equipment Configuration (Phase 3 readiness)
 const networkConfigurationSchema = new mongoose.Schema({
   deviceSubtype: { type: String, trim: true, default: '' }, // Switch, Router, Firewall, Access Point
-  totalPorts: { type: Number, default: null },
+  totalPorts: { type: mongoose.Schema.Types.Mixed, default: null },
   portSpeed: { type: String, trim: true, default: '1 Gbps' },
   managementIp: { type: String, trim: true, default: '' },
   ipAddress: { type: String, trim: true, default: '' },
@@ -135,24 +135,12 @@ const assetSchema = new mongoose.Schema({
   },
   serialNumber: {
     type: String,
-    required: function() {
-      // Require serial number for major physical IT assets, optional for peripherals, accessories, and network profiles
-      const exemptTypes = ['PERIPHERAL', 'OTHER', 'NETWORK'];
-      if (exemptTypes.includes(this.assetType)) return false;
-
-      // Narrow exemption for network profile records such as New PTR IP:
-      // Printer network profile with networkConfig.ipAddress and no physical make/model or explicitly marked
-      if (this.category === 'New PTR IP' || this.specifications?.isNetworkProfile) return false;
-      if (this.assetType === 'PRINTER' && !this.make && !this.model && this.networkConfig?.ipAddress) {
-        return false;
-      }
-
-      return true;
-    },
+    required: false,
     unique: true,
     sparse: true,
     trim: true,
     uppercase: true,
+    set: (v) => (v && typeof v === 'string' && v.trim() ? v.trim().toUpperCase() : undefined),
     default: undefined
   },
   oldAssetId: {
@@ -270,8 +258,7 @@ const assetSchema = new mongoose.Schema({
     default: null
   },
   purchaseCost: {
-    type: Number,
-    min: [0, 'Purchase cost cannot be negative'],
+    type: mongoose.Schema.Types.Mixed,
     default: null
   },
   installDate: {

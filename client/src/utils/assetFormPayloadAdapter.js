@@ -41,20 +41,31 @@ const resolveCategoryConfig = (categoryKeyOrId) => {
 
 /**
  * Safely parses a value based on the field configuration type.
+ * Preserves decimals and numbers, and retains fractions (such as '1/2')
+ * and alphanumeric strings (such as '8GB', '512GB SSD') without auto-converting fractions.
+ *
  * @param {*} value - Input value
  * @param {string} type - Field type ('text', 'number', 'date', 'select', 'textarea')
+ * @param {string} fieldKey - Field identifier
  * @returns {*} Parsed value
  */
-const parseFieldValue = (value, type) => {
+const parseFieldValue = (value, type, fieldKey) => {
   if (value === undefined || value === null) {
     return undefined;
   }
   if (type === 'number') {
     if (typeof value === 'number') return isNaN(value) ? undefined : value;
-    const trimmed = String(value).trim();
-    if (trimmed === '') return undefined;
-    const num = Number(trimmed);
-    return isNaN(num) ? undefined : num;
+    const str = String(value).trim();
+    if (str === '') return undefined;
+    // Pure numbers (integers or decimals) are parsed as numbers.
+    // Fractions (e.g. '1/2') and alphanumeric strings (e.g. '8GB', '512GB SSD')
+    // are retained as strings without auto-converting fractions into decimals.
+    if (/^[-+]?\d+(\.\d+)?$/.test(str)) {
+      const num = Number(str);
+      const isIntegerCount = fieldKey === 'ramSlots' || fieldKey === 'quantity';
+      return isIntegerCount ? Math.round(num) : num;
+    }
+    return str;
   }
   if (typeof value === 'string') {
     return value.trim();
@@ -123,7 +134,7 @@ export const buildAssetPayload = (categoryKeyOrId, formData = {}) => {
   // 4. Map each registered field for this category
   for (const field of config.fields) {
     const rawVal = source[field.key];
-    const val = parseFieldValue(rawVal, field.type);
+    const val = parseFieldValue(rawVal, field.type, field.key);
 
     // Skip empty optional values or unprovided inputs
     if (val === undefined || val === '') {
